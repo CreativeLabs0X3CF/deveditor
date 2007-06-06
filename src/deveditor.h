@@ -27,6 +27,7 @@
 #include <QTextEdit>
 
 class QAction;
+class QFont;
 class QMenu;
 class QToolButton;
 class QTabWidget;
@@ -45,9 +46,26 @@ public:
   void setCurFile(QString _curFile);
   void setShownName(QString _shownName);
 
+  Highlighter* getHighlighter() const;
+
+  bool getHighlighting() const;
+  QFont* getFont();
+
+public slots:
+  void toggleHighlighting();
+  void updateFont();
+
+signals:
+  void highlighting(bool);
+
 protected:
   QString curFile;
   QString shownName;
+
+  Highlighter *highlighter;
+  bool highlighterOn;
+
+  QFont font;
 };
 
 //! Main window
@@ -73,6 +91,12 @@ private slots:
   void toggleSyntaxHighlighting();
   void switchToTab(int);
   void removeTab();
+  void setSyntaxHighlightingMenuItem(bool state);
+  void textBigger();
+  void textSmaller();
+  void textMonospace();
+  void textCourier();
+  void textAndale();
 
 private:
   void init();
@@ -94,6 +118,8 @@ private:
   TextEditWidget *textEdit;
   QString curFile;
   QString shownName;
+  int textSize;
+  QString textFont;
 
   QMenu *fileMenu;
   QMenu *editMenu;
@@ -110,13 +136,16 @@ private:
   QAction *copyAct;
   QAction *pasteAct;
   QAction *highlightAct;
+  QAction *textBiggerAct;
+  QAction *textSmallerAct;
+  QAction *monospaceAct;
+  QAction *courierAct;
+  QAction *andaleAct;
   QAction *aboutAct;
   QAction *aboutQtAct;
   QAction *tabCloseAction;
 
   QToolButton *tabCloseButton;
-
-  Highlighter *highlighter;
 };
 
 #endif

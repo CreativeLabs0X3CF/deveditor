@@ -71,19 +71,11 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
     highlightingRules.append(rule);
   }
 
-  patterns.clear();
-
   preprocessorFormat.setForeground(Qt::darkGreen);
 
-  patterns << "\\b*#define\\b" << "\\b*#ifdef\\b" << "\\b*#ifndef\\n"
-    << "\\b*#endif\\b" << "\\b*#include\\b" << "\\b*#warning\\b" << "\\b*#error\\b";
-
-  foreach(QString pattern, patterns) {
-//     pattern.append("\"[a-zA-Z._]*\"");
-    rule.pattern = QRegExp(pattern);
-    rule.format = preprocessorFormat;
-    highlightingRules.append(rule);
-  }
+  rule.pattern = QRegExp("#[a-zA-Z]+\\b");
+  rule.format = preprocessorFormat;
+  highlightingRules.append(rule);
 
   // Classes use CamelCase.
   classFormat.setFontWeight(QFont::Bold);

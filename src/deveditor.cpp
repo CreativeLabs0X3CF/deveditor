@@ -30,15 +30,36 @@
 #include <assert.h>
 
 TextEditWidget::TextEditWidget(QWidget *parent) : QTextEdit(parent), curFile(""), shownName("") {
-  QFont defaultFont;
-  defaultFont.setFamily("Monospace");
-  defaultFont.setFixedPitch(true);
-  defaultFont.setPointSize(12);
+  font.setFamily("Monospace");
+//   font.setFamily("Courier New");
+//   font.setFamily("Andale Mono");
+  font.setFixedPitch(true);
+  font.setPointSize(12);
 
-  setFont(defaultFont);
+  setFont(font);
+
+  highlighter = new Highlighter(document());
+  highlighterOn = true;
 }
 
 TextEditWidget::~TextEditWidget() {
+  delete highlighter;
+}
+
+void TextEditWidget::toggleHighlighting() {
+  if (highlighterOn) {
+    highlighter->setDocument((QTextDocument *)0);
+    highlighterOn = false;
+  } else {
+    highlighter->setDocument(document());
+    highlighterOn = true;
+  }
+
+  emit highlighting(highlighterOn);
+}
+
+void TextEditWidget::updateFont() {
+  setFont(font);
 }
 
 QString TextEditWidget::getCurFile() const {
@@ -49,6 +70,10 @@ QString TextEditWidget::getShownName() const {
   return shownName;
 }
 
+bool TextEditWidget::getHighlighting() const {
+  return highlighterOn;
+}
+
 void TextEditWidget::setCurFile(QString _curFile) {
   curFile = _curFile;
 }
@@ -57,7 +82,18 @@ void TextEditWidget::setShownName(QString _shownName) {
   shownName = _shownName;
 }
 
+Highlighter* TextEditWidget::getHighlighter() const {
+  return highlighter;
+}
+
+QFont* TextEditWidget::getFont() {
+  return &font;
+}
+
 void DevEditor::init() {
+  textSize = 12;
+  textFont = "Monospace";
+
   tabWidget = new QTabWidget();
   setCentralWidget(tabWidget);
 
@@ -78,11 +114,13 @@ void DevEditor::init() {
 
   connect(textEdit->document(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
-  highlighter = new Highlighter(textEdit->document());
-
   setCurrentFile("");
 
   tabWidget->addTab(textEdit, shownName);
+  textEdit->getFont()->setPointSize(textSize);
+  textEdit->getFont()->setFamily(textFont);
+  textEdit->updateFont();
+  connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
   connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
 }
 
@@ -101,17 +139,39 @@ DevEditor::DevEditor(char *_filename) {
 }
 
 void DevEditor::closeEvent(QCloseEvent *event) {
-  if (maybeSave()) {
-    writeSettings();
-    event->accept();
-  } else {
-    event->ignore();
+  bool modified = false;
+  for (int i = 0; i < tabWidget->count(); ++i)
+    if (((TextEditWidget *)tabWidget->widget(i))->document()->isModified()) {
+      modified = true;
+      break;
+    }
+
+  if (modified) {
+    int ret = QMessageBox::warning(this, tr("DevEditor"),
+      tr("There are multiple tabs open\n"
+      "and some documents have been modified since last save.\n"
+      "Are you sure you want to exit?"),
+      QMessageBox::Yes | QMessageBox::Default,
+      QMessageBox::Cancel | QMessageBox::Escape);
+    if (ret == QMessageBox::Cancel) {
+      event->ignore();
+      return;
+    }
   }
+
+  writeSettings();
+  event->accept();
 }
 
 void DevEditor::newFile() {
   tabWidget->addTab(new TextEditWidget, "");
   switchToTab(tabWidget->count() - 1);
+
+  ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setPointSize(textSize);
+  ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setFamily(textFont);
+  ((TextEditWidget*)tabWidget->currentWidget())->updateFont();
+
+  connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
   setCurrentFile("");
 }
 
@@ -121,6 +181,12 @@ void DevEditor::open() {
     if (curFile != "") {
       tabWidget->addTab(new TextEditWidget, "");
       switchToTab(tabWidget->count() - 1);
+
+      ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setPointSize(textSize);
+      ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setFamily(textFont);
+      ((TextEditWidget*)tabWidget->currentWidget())->updateFont();
+
+      connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
     }
     loadFile(fileName);
   }
@@ -151,10 +217,7 @@ void DevEditor::documentWasModified() {
 }
 
 void DevEditor::toggleSyntaxHighlighting() {
-  if (highlighter->document())
-    highlighter->setDocument(0);
-  else
-    highlighter->setDocument(textEdit->document());
+  textEdit->toggleHighlighting();
 }
 
 void DevEditor::switchToTab(int _tab) {
@@ -165,8 +228,6 @@ void DevEditor::switchToTab(int _tab) {
 
   tabWidget->setCurrentIndex(_tab);
 
-  //TODO Memorize and set curFile when tab changes.
-
   disconnect(cutAct, SIGNAL(triggered()), textEdit, SLOT(cut()));
   disconnect(copyAct, SIGNAL(triggered()), textEdit, SLOT(copy()));
   disconnect(pasteAct, SIGNAL(triggered()), textEdit, SLOT(paste()));
@@ -175,7 +236,11 @@ void DevEditor::switchToTab(int _tab) {
   textEdit = (TextEditWidget*)tabWidget->currentWidget();
   assert(textEdit != 0);
 
-  highlighter->setDocument(textEdit->document());
+  textEdit->getFont()->setPointSize(textSize);
+  textEdit->getFont()->setFamily(textFont);
+  textEdit->updateFont();
+
+  setSyntaxHighlightingMenuItem(textEdit->getHighlighting());
   connect(cutAct, SIGNAL(triggered()), textEdit, SLOT(cut()));
   connect(copyAct, SIGNAL(triggered()), textEdit, SLOT(copy()));
   connect(pasteAct, SIGNAL(triggered()), textEdit, SLOT(paste()));
@@ -189,6 +254,53 @@ void DevEditor::switchToTab(int _tab) {
 
 void DevEditor::removeTab() {
   closeTab(tabWidget->currentIndex());
+}
+
+void DevEditor::setSyntaxHighlightingMenuItem(bool state) {
+  highlightAct->setChecked(state);
+}
+
+void DevEditor::textBigger() {
+  ++textSize;
+  textEdit->getFont()->setPointSize(textSize);
+  textEdit->updateFont();
+}
+
+void DevEditor::textSmaller() {
+  if (textSize == 1)
+    return;
+
+  --textSize;
+  textEdit->getFont()->setPointSize(textSize);
+  textEdit->updateFont();
+}
+
+void DevEditor::textMonospace() {
+  textFont = "Monospace";
+  textEdit->getFont()->setFamily("Monospace");
+  textEdit->updateFont();
+  monospaceAct->setChecked(true);
+  courierAct->setChecked(false);
+  andaleAct->setChecked(false);
+}
+
+void DevEditor::textCourier() {
+  textFont = "Courier New";
+  textEdit->getFont()->setFamily("Courier New");
+  textEdit->updateFont();
+  monospaceAct->setChecked(false);
+  courierAct->setChecked(true);
+  andaleAct->setChecked(false);
+}
+
+void DevEditor::textAndale() {
+  textFont = "Andale Mono";
+  textEdit->getFont()->setFamily("Andale Mono");
+  textEdit->updateFont();
+  monospaceAct->setChecked(false);
+  courierAct->setChecked(false);
+  andaleAct->setChecked(true);
+  //TODO Find out if there isn't a better way to do this.
 }
 
 void DevEditor::createActions() {
@@ -240,6 +352,30 @@ void DevEditor::createActions() {
   highlightAct->setChecked(true);
   connect(highlightAct, SIGNAL(triggered()), this, SLOT(toggleSyntaxHighlighting()));
 
+  textBiggerAct = new QAction(QIcon(":viewmag+.xpm"), tr("Text bigger"), this);
+  textBiggerAct->setStatusTip(tr("Makes the text in the current tab bigger"));
+  connect(textBiggerAct, SIGNAL(triggered()), this, SLOT(textBigger()));
+
+  textSmallerAct = new QAction(QIcon(":viewmag-.xpm"), tr("Text smaller"), this);
+  textSmallerAct->setStatusTip(tr("Makes the text in the current tab smaller"));
+  connect(textSmallerAct, SIGNAL(triggered()), this, SLOT(textSmaller()));
+
+  monospaceAct = new QAction(tr("Monospace"), this);
+  monospaceAct->setStatusTip(tr("Sets the font in the current tab to Monospace"));
+  monospaceAct->setCheckable(true);
+  monospaceAct->setChecked(true);
+  connect(monospaceAct, SIGNAL(triggered()), this, SLOT(textMonospace()));
+
+  courierAct = new QAction(tr("Courier New"), this);
+  courierAct->setStatusTip(tr("Sets the font in the current tab to Courier New"));
+  courierAct->setCheckable(true);
+  connect(courierAct, SIGNAL(triggered()), this, SLOT(textCourier()));
+
+  andaleAct = new QAction(tr("Andale Mono"), this);
+  andaleAct->setStatusTip(tr("Sets the font in the current tab to Andale Mono"));
+  andaleAct->setCheckable(true);
+  connect(andaleAct, SIGNAL(triggered()), this, SLOT(textAndale()));
+
   aboutAct = new QAction(tr("&About"), this);
   aboutAct->setStatusTip(tr("Show the application's About box"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
@@ -250,7 +386,7 @@ void DevEditor::createActions() {
 
   tabCloseAction = new QAction(QIcon(":tab_remove.xpm"), tr("Close tab"), this);
   tabCloseAction->setStatusTip(tr("Close the current tab"));
-  //TODO Connect to something.
+  // This is added to a toolbutton in init().
 
   cutAct->setEnabled(false);
   copyAct->setEnabled(false);
@@ -274,6 +410,13 @@ void DevEditor::createMenus() {
 
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(highlightAct);
+  QMenu *textMenu = viewMenu->addMenu(tr("&Text"));
+  textMenu->addAction(textBiggerAct);
+  textMenu->addAction(textSmallerAct);
+  textMenu->addSeparator();
+  textMenu->addAction(monospaceAct);
+  textMenu->addAction(courierAct);
+  textMenu->addAction(andaleAct);
 
   menuBar()->addSeparator();
 
@@ -292,6 +435,10 @@ void DevEditor::createToolBars() {
   editToolBar->addAction(cutAct);
   editToolBar->addAction(copyAct);
   editToolBar->addAction(pasteAct);
+
+  editToolBar = addToolBar(tr("View"));
+  editToolBar->addAction(textSmallerAct);
+  editToolBar->addAction(textBiggerAct);
 }
 
 void DevEditor::createStatusBar() {
@@ -390,19 +537,18 @@ QString DevEditor::strippedName(const QString &fullFileName) {
 }
 
 void DevEditor::closeTab(int index, bool force) {
-  if (force || maybeSave()) {
-    if (index == tabWidget->currentIndex()) {
-      //TODO Fix closeTab code.
-    }
+  bool ret = true;
+  if (((TextEditWidget *)tabWidget->widget(index))->document()->isModified())
+    ret = maybeSave();
 
-//     TextEditWidget *aux = (TextEditWidget*)tabWidget->widget(index);
-//     disconnect(cutAct, SIGNAL(triggered()), aux, SLOT(cut()));
-//     disconnect(copyAct, SIGNAL(triggered()), aux, SLOT(copy()));
-//     disconnect(pasteAct, SIGNAL(triggered()), aux, SLOT(paste()));
-//     disconnect(aux->document(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
-    tabWidget->removeTab(index);
-//     delete aux;
+  if (!force) {
+    if (!ret)
+      return;
   }
+  //TODO Delete the tab after it's no longer shown.
+
+  tabWidget->removeTab(index);
+//     delete aux;
 
   if (!force && (tabWidget->count() == 0)) {
     newFile();
@@ -414,6 +560,8 @@ DevEditor::~DevEditor() {
 //     qWarning("%d\n", tabWidget->count());
     closeTab(0, true);
   }
+
+  //TODO delete actions
 
   delete tabWidget;
 }
