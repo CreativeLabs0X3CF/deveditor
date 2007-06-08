@@ -21,7 +21,7 @@
 
 #include <QtGui>
 #include "deveditor.h"
-#include "highlighter.h"
+#include "texteditwidget.h"
 
 #include <QTextStream>
 #include <QCloseEvent>
@@ -29,90 +29,28 @@
 
 #include <assert.h>
 
-TextEditWidget::TextEditWidget(QWidget *parent) : QTextEdit(parent), curFile(""), shownName("") {
-  font.setFamily("Monospace");
-//   font.setFamily("Courier New");
-//   font.setFamily("Andale Mono");
-  font.setFixedPitch(true);
-  font.setPointSize(12);
-
-  setFont(font);
-
-  highlighter = new Highlighter(document());
-  highlighterOn = true;
-}
-
-TextEditWidget::~TextEditWidget() {
-  delete highlighter;
-}
-
-void TextEditWidget::toggleHighlighting() {
-  if (highlighterOn) {
-    highlighter->setDocument((QTextDocument *)0);
-    highlighterOn = false;
-  } else {
-    highlighter->setDocument(document());
-    highlighterOn = true;
-  }
-
-  emit highlighting(highlighterOn);
-}
-
-void TextEditWidget::updateFont() {
-  setFont(font);
-}
-
-QString TextEditWidget::getCurFile() const {
-  return curFile;
-}
-
-QString TextEditWidget::getShownName() const {
-  return shownName;
-}
-
-bool TextEditWidget::getHighlighting() const {
-  return highlighterOn;
-}
-
-void TextEditWidget::setCurFile(QString _curFile) {
-  curFile = _curFile;
-}
-
-void TextEditWidget::setShownName(QString _shownName) {
-  shownName = _shownName;
-}
-
-Highlighter* TextEditWidget::getHighlighter() const {
-  return highlighter;
-}
-
-QFont* TextEditWidget::getFont() {
-  return &font;
-}
-
 void DevEditor::init() {
-  textSize = 12;
-  textFont = "Monospace";
+//   textSize = 12;
+//   textFont = "Monospace";
 
-  tabWidget = new QTabWidget();
+  tabWidget = new QTabWidget(this);
   setCentralWidget(tabWidget);
 
-  textEdit = new TextEditWidget;
+  textEdit = new TextEditWidget(tabWidget);
 
   createActions();
   createMenus();
   createToolBars();
   createStatusBar();
 
-  tabCloseButton = new QToolButton();
+  tabCloseButton = new QToolButton(this);
   tabCloseButton->setDefaultAction(tabCloseAction);
-//   tabCloseButton->setPixmap(QPixmap(":tab_remove.xpm"));
   tabWidget->setCornerWidget(tabCloseButton);
   connect(tabCloseButton, SIGNAL(clicked()), this, SLOT(removeTab()));
 
   readSettings();
 
-  connect(textEdit->document(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+  connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
   setCurrentFile("");
 
@@ -138,10 +76,37 @@ DevEditor::DevEditor(char *_filename) {
     qWarning("Unable to open %s", _filename);
 }
 
+void DevEditor::closeTab(int index, bool force) {
+  if ((index < 0) || (index >= tabWidget->count())) {
+    qWarning("Warning: Tried to close tab %d, but there are only %d tabs.\n", index, tabWidget->count());
+    return;
+  }
+
+  bool ret = true;
+
+  QWidget *aux = tabWidget->widget(index);
+
+  if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
+    ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
+
+  if (!force) {
+    if (!ret)
+      return;
+  }
+
+  tabWidget->removeTab(index);
+
+  if (!force && (tabWidget->count() == 0)) {
+    newFile();
+  }
+
+  delete aux;
+}
+
 void DevEditor::closeEvent(QCloseEvent *event) {
   bool modified = false;
   for (int i = 0; i < tabWidget->count(); ++i)
-    if (((TextEditWidget *)tabWidget->widget(i))->document()->isModified()) {
+    if (((TextEditWidget *)tabWidget->widget(i))->getDocument()->isModified()) {
       modified = true;
       break;
     }
@@ -159,12 +124,15 @@ void DevEditor::closeEvent(QCloseEvent *event) {
     }
   }
 
+  while (tabWidget->count())
+    closeTab(0, true);
+
   writeSettings();
   event->accept();
 }
 
 void DevEditor::newFile() {
-  tabWidget->addTab(new TextEditWidget, "");
+  tabWidget->addTab(new TextEditWidget(tabWidget), "");
   switchToTab(tabWidget->count() - 1);
 
   ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setPointSize(textSize);
@@ -179,7 +147,7 @@ void DevEditor::open() {
   QString fileName = QFileDialog::getOpenFileName(this);
   if (!fileName.isEmpty()) {
     if (curFile != "") {
-      tabWidget->addTab(new TextEditWidget, "");
+      tabWidget->addTab(new TextEditWidget(tabWidget), "");
       switchToTab(tabWidget->count() - 1);
 
       ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setPointSize(textSize);
@@ -214,6 +182,7 @@ void DevEditor::about() {
 
 void DevEditor::documentWasModified() {
   setWindowModified(true);
+  tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
 }
 
 void DevEditor::toggleSyntaxHighlighting() {
@@ -228,10 +197,10 @@ void DevEditor::switchToTab(int _tab) {
 
   tabWidget->setCurrentIndex(_tab);
 
-  disconnect(cutAct, SIGNAL(triggered()), textEdit, SLOT(cut()));
-  disconnect(copyAct, SIGNAL(triggered()), textEdit, SLOT(copy()));
-  disconnect(pasteAct, SIGNAL(triggered()), textEdit, SLOT(paste()));
-  disconnect(textEdit->document(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+  disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+  disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+  disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+  disconnect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
   textEdit = (TextEditWidget*)tabWidget->currentWidget();
   assert(textEdit != 0);
@@ -241,14 +210,15 @@ void DevEditor::switchToTab(int _tab) {
   textEdit->updateFont();
 
   setSyntaxHighlightingMenuItem(textEdit->getHighlighting());
-  connect(cutAct, SIGNAL(triggered()), textEdit, SLOT(cut()));
-  connect(copyAct, SIGNAL(triggered()), textEdit, SLOT(copy()));
-  connect(pasteAct, SIGNAL(triggered()), textEdit, SLOT(paste()));
-  connect(textEdit->document(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+  connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+  connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+  connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+  connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
   curFile = textEdit->getCurFile();
   shownName = textEdit->getShownName();
 
+  setWindowModified(textEdit->getDocument()->isModified() || (curFile == ""));
   setWindowTitle(tr("%1[*] - %2").arg(shownName).arg(tr("DevEditor")));
 }
 
@@ -332,19 +302,19 @@ void DevEditor::createActions() {
   cutAct->setShortcut(tr("Ctrl+X"));
   cutAct->setStatusTip(tr("Cut the current selection's contents to the "
     "clipboard"));
-  connect(cutAct, SIGNAL(triggered()), textEdit, SLOT(cut()));
+  connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
 
   copyAct = new QAction(QIcon(":/editcopy.xpm"), tr("&Copy"), this);
   copyAct->setShortcut(tr("Ctrl+C"));
   copyAct->setStatusTip(tr("Copy the current selection's contents to the "
     "clipboard"));
-  connect(copyAct, SIGNAL(triggered()), textEdit, SLOT(copy()));
+  connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
 
   pasteAct = new QAction(QIcon(":/editpaste.xpm"), tr("&Paste"), this);
   pasteAct->setShortcut(tr("Ctrl+V"));
   pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
     "selection"));
-  connect(pasteAct, SIGNAL(triggered()), textEdit, SLOT(paste()));
+  connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
 
   highlightAct = new QAction(tr("Syntax &Highlighting"), this);
   highlightAct->setStatusTip(tr("Toggle syntax highlighting"));
@@ -390,8 +360,8 @@ void DevEditor::createActions() {
 
   cutAct->setEnabled(false);
   copyAct->setEnabled(false);
-  connect(textEdit, SIGNAL(copyAvailable(bool)), cutAct, SLOT(setEnabled(bool)));
-  connect(textEdit, SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
+  connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), cutAct, SLOT(setEnabled(bool)));
+  connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
 }
 
 void DevEditor::createMenus() {
@@ -449,6 +419,8 @@ void DevEditor::readSettings() {
   QSettings settings("ScvTech", "DevEditor");
   QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
   QSize size = settings.value("size", QSize(400, 400)).toSize();
+  textSize = settings.value("pointSize", 12).toInt();
+  textFont = settings.value("fontFamily", "Monospace").toString();
   resize(size);
   move(pos);
 }
@@ -457,16 +429,26 @@ void DevEditor::writeSettings() {
   QSettings settings("ScvTech", "DevEditor");
   settings.setValue("pos", pos());
   settings.setValue("size", size());
+  settings.setValue("pointSize", textSize);
+  settings.setValue("fontFamily", textFont);
 }
 
-bool DevEditor::maybeSave() {
-  if (textEdit->document()->isModified()) {
-    int ret = QMessageBox::warning(this, tr("DevEditor"),
-      tr("The document %1 has been modified.\n"
-      "Do you want to save your changes?").arg(shownName),
-      QMessageBox::Yes | QMessageBox::Default,
-      QMessageBox::No,
-      QMessageBox::Cancel | QMessageBox::Escape);
+bool DevEditor::maybeSave(bool canCancel) {
+  if (textEdit->getDocument()->isModified()) {
+    int ret;
+    if (canCancel)
+      ret = QMessageBox::warning(this, tr("DevEditor"),
+        tr("The document %1 has been modified.\n"
+        "Do you want to save your changes?").arg(shownName),
+        QMessageBox::Yes | QMessageBox::Default,
+        QMessageBox::No,
+        QMessageBox::Cancel | QMessageBox::Escape);
+    else
+      ret = QMessageBox::warning(this, tr("DevEditor"),
+        tr("The document %1 has been modified.\n"
+        "Do you want to save your changes?").arg(shownName),
+        QMessageBox::Yes | QMessageBox::Default,
+        QMessageBox::No);
     if (ret == QMessageBox::Yes)
       return save();
     else if (ret == QMessageBox::Cancel)
@@ -487,7 +469,7 @@ void DevEditor::loadFile(const QString &fileName) {
 
   QTextStream in(&file);
   QApplication::setOverrideCursor(Qt::WaitCursor);
-  textEdit->setPlainText(in.readAll());
+  textEdit->getTextEdit()->setPlainText(in.readAll());
   QApplication::restoreOverrideCursor();
 
   setCurrentFile(fileName);
@@ -507,7 +489,7 @@ bool DevEditor::saveFile(const QString &fileName) {
 
   QTextStream out(&file);
   QApplication::setOverrideCursor(Qt::WaitCursor);
-  out << textEdit->toPlainText();
+  out << textEdit->getTextEdit()->toPlainText();
   QApplication::restoreOverrideCursor();
 
   setCurrentFile(fileName);
@@ -517,7 +499,7 @@ bool DevEditor::saveFile(const QString &fileName) {
 
 void DevEditor::setCurrentFile(const QString &fileName) {
   curFile = fileName;
-  textEdit->document()->setModified(false);
+  textEdit->getDocument()->setModified(false);
   setWindowModified(false);
 
   if (curFile.isEmpty())
@@ -526,7 +508,10 @@ void DevEditor::setCurrentFile(const QString &fileName) {
     shownName = strippedName(curFile);
 
   setWindowTitle(tr("%1[*] - %2").arg(shownName).arg(tr("DevEditor")));
-  tabWidget->setTabText(tabWidget->currentIndex(), shownName);
+  if (isWindowModified())
+    tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
+  else
+    tabWidget->setTabText(tabWidget->currentIndex(), shownName);
 
   textEdit->setCurFile(curFile);
   textEdit->setShownName(shownName);
@@ -536,32 +521,5 @@ QString DevEditor::strippedName(const QString &fullFileName) {
   return QFileInfo(fullFileName).fileName();
 }
 
-void DevEditor::closeTab(int index, bool force) {
-  bool ret = true;
-  if (((TextEditWidget *)tabWidget->widget(index))->document()->isModified())
-    ret = maybeSave();
-
-  if (!force) {
-    if (!ret)
-      return;
-  }
-  //TODO Delete the tab after it's no longer shown.
-
-  tabWidget->removeTab(index);
-//     delete aux;
-
-  if (!force && (tabWidget->count() == 0)) {
-    newFile();
-  }
-}
-
 DevEditor::~DevEditor() {
-  while (tabWidget->count()) {
-//     qWarning("%d\n", tabWidget->count());
-    closeTab(0, true);
-  }
-
-  //TODO delete actions
-
-  delete tabWidget;
 }

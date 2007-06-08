@@ -56,7 +56,6 @@ protected:
   QTextCharFormat quotationFormat;
   QTextCharFormat qMacroFormat;
   QTextCharFormat preprocessorFormat;
-//   QTextCharFormat functionFormat;
 };
 
 #endif
