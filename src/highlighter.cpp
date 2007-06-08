@@ -100,12 +100,6 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
   rule.format = numberFormat;
   highlightingRules.append(rule);
 
-//   functionFormat.setFontItalic(true);
-//   functionFormat.setForeground(Qt::blue);
-//   rule.pattern = QRegExp("\\b[A-Za-z0-9_]+(?=\\()");
-//   rule.format = functionFormat;
-//   highlightingRules.append(rule);
-
   singleLineCommentFormat.setForeground(Qt::darkGray);
   rule.pattern = QRegExp("//[^\n]*");
   rule.format = singleLineCommentFormat;

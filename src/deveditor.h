@@ -24,49 +24,13 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
-#include <QTextEdit>
 
 class QAction;
 class QFont;
 class QMenu;
-class QToolButton;
 class QTabWidget;
-class Highlighter;
-
-class TextEditWidget : public QTextEdit {
-  Q_OBJECT
-
-public:
-  TextEditWidget(QWidget *parent = 0);
-  ~TextEditWidget();
-
-  QString getCurFile() const;
-  QString getShownName() const;
-
-  void setCurFile(QString _curFile);
-  void setShownName(QString _shownName);
-
-  Highlighter* getHighlighter() const;
-
-  bool getHighlighting() const;
-  QFont* getFont();
-
-public slots:
-  void toggleHighlighting();
-  void updateFont();
-
-signals:
-  void highlighting(bool);
-
-protected:
-  QString curFile;
-  QString shownName;
-
-  Highlighter *highlighter;
-  bool highlighterOn;
-
-  QFont font;
-};
+class QToolButton;
+class TextEditWidget;
 
 //! Main window
 class DevEditor:public QMainWindow {
@@ -82,43 +46,101 @@ protected:
   void closeEvent(QCloseEvent *event);
 
 private slots:
+  //! Opens an empty file.
   void newFile();
+
+  /*!
+    Pops up an open file dialog and opens the selected file.
+    @note If the file in the current tab is empty, the new file is opened into the same tab.
+  */
   void open();
+
   bool save();
   bool saveAs();
   void about();
   void documentWasModified();
+
+  //! Toggles syntax highlighting on/off for the current tab.
   void toggleSyntaxHighlighting();
-  void switchToTab(int);
+
+  //! Switches to the _tab-th tab. If it does not exist, returns.
+  void switchToTab(int _tab);
+
+  /*!
+    Removes the current tab from view. Provided for convenience.
+    @sa closeTab()
+  */
   void removeTab();
+
+  //! Sets the syntax highlighting menu item checkbox to checked or not checked.
   void setSyntaxHighlightingMenuItem(bool state);
+
+  //! Makes the text in all tabs bigger.
   void textBigger();
+
+  //! Makes the text in all tabs smaller.
   void textSmaller();
+
+  //! Sets the font to the specifed family.
   void textMonospace();
   void textCourier();
   void textAndale();
 
 private:
+  //! Code sequences common to all constructors.
   void init();
 
   void createActions();
   void createMenus();
   void createToolBars();
   void createStatusBar();
+
+  /*!
+    Saves/loads the global settings:
+     * "pos": the position on the screen.
+     * "size": the size of the window.
+     * "pointSize": the size of the text.
+     * "fontFamily": the font family of the text.
+  */
   void readSettings();
   void writeSettings();
-  bool maybeSave();
+
+  bool maybeSave(bool canCancel = true);
   void loadFile(const QString &fileName);
   bool saveFile(const QString &fileName);
   void setCurrentFile(const QString &fileName);
+
+  //! @return The base --- last part of the filename.
   QString strippedName(const QString &fullFileName);
+
+  /*!
+    Closes the index-th tab.
+    @param index The number of the tab to closed. If smaller than 0 or greater or equal to the number of tabs, returns.
+    @param force If false, then the tab may not be closed (if the user desires it). If true, by the time the function returns, the tab will be hidden and deleted.
+  */
   void closeTab(int index, bool force = false);
 
   QTabWidget *tabWidget;
+
+  //! The current TextEditWidget, i.e. the one in the current tab.
   TextEditWidget *textEdit;
+
+  //! The current file.
   QString curFile;
+
+  //! The file name that's actually shown to the user.
   QString shownName;
+
+  /*!
+    The current text size in points.
+    @sa textBigger(), textSmaller()
+  */
   int textSize;
+
+  /*!
+    The current text font family.
+    @sa textMonospace(), textCourier(), textAndale()
+  */
   QString textFont;
 
   QMenu *fileMenu;
