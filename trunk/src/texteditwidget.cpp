@@ -24,16 +24,13 @@
 
 #include "highlighter.h"
 
-NumberBar::NumberBar(QWidget *parent) : QWidget(parent), edit(0), currentLine(-1) {
-  setFixedWidth(fontMetrics().width(QString("0000") + 3)); //TODO Make with dynamic.
-  currentMarker = QPixmap(":next.xpm");
+//TODO Make the current line highlighted in some light gray.
+
+NumberBar::NumberBar(QWidget *parent) : QWidget(parent), edit(0) {
+  setFixedWidth(fontMetrics().width(QString("0") + 3)); // Changed during paintEvent()
 }
 
 NumberBar::~NumberBar() {
-}
-
-void NumberBar::setCurrentLine(int _line) {
-  currentLine = _line;
 }
 
 void NumberBar::setTextEdit(QTextEdit *_edit) {
@@ -52,8 +49,7 @@ void NumberBar::paintEvent(QPaintEvent *) {
 
   QPainter p(this);
 
-  currentRect = QRect();
-
+  //TODO This loops around too much for large files. Make it more efficient.
   for (QTextBlock block = edit->document()->begin(); block.isValid(); block = block.next(), ++lineCount) {
     const QRectF boundingRect = layout->blockBoundingRect(block);
 
@@ -65,21 +61,20 @@ void NumberBar::paintEvent(QPaintEvent *) {
 
     const QString txt = QString::number(lineCount);
     p.drawText(width() - fm.width(txt) - 2, qRound(position.y()) - contentsY + ascent, txt);
-
-    if (currentLine == lineCount) {
-      p.drawPixmap(19, qRound(position.y()) - contentsY, currentMarker);
-      currentRect = QRect(19, qRound(position.y()) - contentsY, currentMarker.width(), currentMarker.height());
-    }
   }
+  //TODO Optimize this.
+
+  const QString txt = QString::number(lineCount);
+  setFixedWidth(fontMetrics().width(txt) + 3);
 }
 
 bool NumberBar::event(QEvent *event) {
-  if (event->type() == QEvent::ToolTip) {
-    QHelpEvent *helpEvent = (QHelpEvent*)event;
-
-    if (currentRect.contains(helpEvent->pos()))
-      QToolTip::showText(helpEvent->globalPos(), "Current line");
-  }
+//   if (event->type() == QEvent::ToolTip) {
+//     QHelpEvent *helpEvent = (QHelpEvent*)event;
+//
+//     if (currentRect.contains(helpEvent->pos()))
+//       QToolTip::showText(helpEvent->globalPos(), "Current line");
+//   }
 
   return QWidget::event(event);
 }
@@ -90,6 +85,7 @@ TextEditWidget::TextEditWidget(QWidget *parent) : QFrame(parent), curFile(""), s
 
   // Setup the main QTextEdit
   view = new QTextEdit(this);
+  view->setTabStopWidth(fontMetrics().width(QString("00")));
 
   font.setFamily("Monospace");
   font.setFixedPitch(true);
@@ -100,7 +96,7 @@ TextEditWidget::TextEditWidget(QWidget *parent) : QFrame(parent), curFile(""), s
   view->setFrameStyle(QFrame::NoFrame);
   view->installEventFilter(this);
 
-  connect(view->document(), SIGNAL(contentsChange(int, int, int)), this, SLOT(textChanged(int, int, int)));
+  connect(view, SIGNAL(cursorPositionChanged()), this, SLOT(cursorChanged()));
 
   // Setup the line number pane
   numbers = new NumberBar(this);
@@ -114,6 +110,8 @@ TextEditWidget::TextEditWidget(QWidget *parent) : QFrame(parent), curFile(""), s
 
   highlighter = new Highlighter(view->document());
   highlighterOn = true;
+
+  cursorChanged();
 }
 
 TextEditWidget::~TextEditWidget() {
@@ -137,6 +135,10 @@ void TextEditWidget::toggleHighlighting() {
 
 void TextEditWidget::updateFont() {
   view->setFont(font);
+}
+
+void TextEditWidget::setLineNumbering(bool _state) {
+  numbers->setVisible(_state);
 }
 
 QString TextEditWidget::getCurFile() const {
@@ -167,17 +169,8 @@ QFont* TextEditWidget::getFont() {
   return &font;
 }
 
-void TextEditWidget::setCurrentLine(int _line) {
-  currentLine = _line;
-  numbers->setCurrentLine(currentLine);
-  textChanged(0, 0, 1);
-}
-
-void TextEditWidget::textChanged(int pos, int removed, int added) {
-  Q_UNUSED(pos); // This stops the compiler form issueing warnings like "pos declared but never used"
-
-  if ((removed == 0) && (added == 0))
-    return;
+void TextEditWidget::cursorChanged() {
+  bool mod = getDocument()->isModified();
 
   QTextBlock block = highlight.block();
   QTextBlockFormat fmt = block.blockFormat();
@@ -186,10 +179,11 @@ void TextEditWidget::textChanged(int pos, int removed, int added) {
   highlight.setBlockFormat(fmt);
 
   int lineCount = 1;
+  currentLine = view->textCursor().blockNumber() + 1;
   for (QTextBlock block = view->document()->begin(); block.isValid(); block = block.next(), ++lineCount)
     if (lineCount == currentLine) {
       fmt = block.blockFormat();
-      QColor bg = view->palette().highlight().color().light(175);
+      QColor bg = QColor(192, 192, 192, 100);
       fmt.setBackground(bg);
 
       highlight = QTextCursor(block);
@@ -198,6 +192,11 @@ void TextEditWidget::textChanged(int pos, int removed, int added) {
 
       break;
     }
+  //TODO Optimize this.
+
+  getDocument()->setModified(mod);
+
+  emit cursorPositionChanged(currentLine, view->textCursor().columnNumber() + 1);
 }
 
 bool TextEditWidget::eventFilter(QObject *obj, QEvent *event) {
@@ -215,7 +214,7 @@ bool TextEditWidget::eventFilter(QObject *obj, QEvent *event) {
     emit mouseHover(word);
     emit mouseHover(helpEvent->pos(), word);
 
-    QToolTip::showText(helpEvent->globalPos(), word);
+//     QToolTip::showText(helpEvent->globalPos(), word);
   }
 
   return false;
