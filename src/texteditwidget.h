@@ -23,12 +23,12 @@
 #define TEXTEDITWIDGET_H
 
 #include <QFrame>
-#include <QPixmap>
 #include <QTextCursor>
 
 class QTextEdit;
 class QHBoxLayout;
 class Highlighter;
+class QTextDocument;
 
 class NumberBar : public QWidget {
   Q_OBJECT
@@ -37,8 +37,6 @@ public:
   NumberBar(QWidget *parent);
   ~NumberBar();
 
-  void setCurrentLine(int _line);
-
   void setTextEdit(QTextEdit *_edit);
   void paintEvent(QPaintEvent *event);
 
@@ -46,8 +44,6 @@ protected:
   bool event(QEvent *event);
 
   QTextEdit *edit;
-  QPixmap currentMarker;
-  int currentLine;
   QRect currentRect;
 };
 
@@ -77,12 +73,6 @@ public:
   */
   QFont* getFont();
 
-  /*!
-    Sets the line that should have the current line indicator.
-    A value of -1 indicates no line should show the indicator.
-  */
-  void setCurrentLine(int _line);
-
   //! @internal Used to get tooltip events from the view for the hover signal.
   bool eventFilter(QObject *obj, QEvent *event);
 
@@ -92,15 +82,19 @@ public:
 public slots:
   //! Toggles syntax highlighting.
   void toggleHighlighting();
+
   /*!
     Displays any changest to font.
     @sa getFont()
   */
   void updateFont();
 
+  //! Sets the line numbers column visibility to true or false.
+  void setLineNumbering(bool _state);
+
 protected slots:
   //! @internal Used to update the highlight on the current line.
-  void textChanged(int pos, int added, int removed);
+  void cursorChanged();
 
 signals:
   /*!
@@ -122,11 +116,19 @@ signals:
   */
   void mouseHover(const QPoint &pos, const QString &word);
 
+  /*!
+    @param line The current line.
+    @param column The current character in the current line.
+  */
+  void cursorPositionChanged(int line, int column);
+
 protected:
   QTextEdit *view;
   NumberBar *numbers;
   QHBoxLayout *box;
   int currentLine;
+
+  //! Previous cursor.
   QTextCursor highlight;
 
   QString curFile;

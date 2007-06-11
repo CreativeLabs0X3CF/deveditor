@@ -30,8 +30,7 @@
 #include <assert.h>
 
 void DevEditor::init() {
-//   textSize = 12;
-//   textFont = "Monospace";
+  lineNumbering = true;
 
   tabWidget = new QTabWidget(this);
   setCentralWidget(tabWidget);
@@ -50,6 +49,7 @@ void DevEditor::init() {
 
   readSettings();
 
+  connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
   connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
   setCurrentFile("");
@@ -58,8 +58,10 @@ void DevEditor::init() {
   textEdit->getFont()->setPointSize(textSize);
   textEdit->getFont()->setFamily(textFont);
   textEdit->updateFont();
+  textEdit->setLineNumbering(lineNumbering);
   connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
   connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
+  connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
 }
 
 DevEditor::DevEditor() {
@@ -135,9 +137,10 @@ void DevEditor::newFile() {
   tabWidget->addTab(new TextEditWidget(tabWidget), "");
   switchToTab(tabWidget->count() - 1);
 
-  ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setPointSize(textSize);
-  ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setFamily(textFont);
-  ((TextEditWidget*)tabWidget->currentWidget())->updateFont();
+  textEdit->getFont()->setPointSize(textSize);
+  textEdit->getFont()->setFamily(textFont);
+  textEdit->updateFont();
+  textEdit->setLineNumbering(lineNumbering);
 
   connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
   setCurrentFile("");
@@ -150,9 +153,10 @@ void DevEditor::open() {
       tabWidget->addTab(new TextEditWidget(tabWidget), "");
       switchToTab(tabWidget->count() - 1);
 
-      ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setPointSize(textSize);
-      ((TextEditWidget*)tabWidget->currentWidget())->getFont()->setFamily(textFont);
-      ((TextEditWidget*)tabWidget->currentWidget())->updateFont();
+      textEdit->getFont()->setPointSize(textSize);
+      textEdit->getFont()->setFamily(textFont);
+      textEdit->updateFont();
+      textEdit->setLineNumbering(lineNumbering);
 
       connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
     }
@@ -180,13 +184,32 @@ void DevEditor::about() {
     tr("<b>DevEditor</b> is an experimental programmer's editor."));
 }
 
+void DevEditor::documentWasModified(bool changed) {
+  setWindowModified(changed);
+
+  textEdit->getDocument()->setModified(changed); //NOTE This shouldn't do anything, but it does.
+
+  if (changed)
+    tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
+  else
+    tabWidget->setTabText(tabWidget->currentIndex(), tr("%1").arg(shownName));
+}
+
 void DevEditor::documentWasModified() {
-  setWindowModified(true);
-  tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
+  documentWasModified(true);
 }
 
 void DevEditor::toggleSyntaxHighlighting() {
   textEdit->toggleHighlighting();
+}
+
+void DevEditor::toggleLineNumbering() {
+  lineNumbering = !lineNumbering;
+
+  for (int i(0); i < tabWidget->count(); ++i)
+    ((TextEditWidget*)tabWidget->widget(i))->setLineNumbering(lineNumbering);
+
+  lineNumbersAct->setChecked(lineNumbering);
 }
 
 void DevEditor::switchToTab(int _tab) {
@@ -200,7 +223,7 @@ void DevEditor::switchToTab(int _tab) {
   disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
   disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
   disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
-  disconnect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+  disconnect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
 
   textEdit = (TextEditWidget*)tabWidget->currentWidget();
   assert(textEdit != 0);
@@ -213,7 +236,7 @@ void DevEditor::switchToTab(int _tab) {
   connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
   connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
   connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
-  connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+  connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
 
   curFile = textEdit->getCurFile();
   shownName = textEdit->getShownName();
@@ -271,6 +294,11 @@ void DevEditor::textAndale() {
   courierAct->setChecked(false);
   andaleAct->setChecked(true);
   //TODO Find out if there isn't a better way to do this.
+}
+
+void DevEditor::updatePos(int line, int col) {
+  lineLabel->setText(tr("Line: %1").arg(line));
+  columnLabel->setText(tr("Col: %1").arg(col));
 }
 
 void DevEditor::createActions() {
@@ -346,6 +374,12 @@ void DevEditor::createActions() {
   andaleAct->setCheckable(true);
   connect(andaleAct, SIGNAL(triggered()), this, SLOT(textAndale()));
 
+  lineNumbersAct = new QAction(tr("Line numbers"), this);
+  lineNumbersAct->setStatusTip(tr("Shows/Hides line numbers."));
+  lineNumbersAct->setCheckable(true);
+  lineNumbersAct->setChecked(true);
+  connect(lineNumbersAct, SIGNAL(triggered()), this, SLOT(toggleLineNumbering()));
+
   aboutAct = new QAction(tr("&About"), this);
   aboutAct->setStatusTip(tr("Show the application's About box"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
@@ -387,6 +421,8 @@ void DevEditor::createMenus() {
   textMenu->addAction(monospaceAct);
   textMenu->addAction(courierAct);
   textMenu->addAction(andaleAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(lineNumbersAct);
 
   menuBar()->addSeparator();
 
@@ -412,6 +448,22 @@ void DevEditor::createToolBars() {
 }
 
 void DevEditor::createStatusBar() {
+  lineLabel = new QLabel("Line: 0", this);
+  columnLabel = new QLabel("Col: 0", this);
+
+  QHBoxLayout *box = new QHBoxLayout;
+  box->setSpacing(3);
+  box->setMargin(1);
+  box->addWidget(lineLabel);
+  box->addWidget(columnLabel);
+
+  QFrame *aux = new QFrame;
+  aux->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+  aux->setLineWidth(2);
+  aux->setLayout(box);
+
+  statusBar()->addWidget(aux);
+
   statusBar()->showMessage(tr("Ready"));
 }
 

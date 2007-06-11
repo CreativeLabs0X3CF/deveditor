@@ -30,6 +30,7 @@ class QFont;
 class QMenu;
 class QTabWidget;
 class QToolButton;
+class QLabel;
 class TextEditWidget;
 
 //! Main window
@@ -58,10 +59,15 @@ private slots:
   bool save();
   bool saveAs();
   void about();
+  //!@param changed The new modification state.
+  void documentWasModified(bool changed);
   void documentWasModified();
 
   //! Toggles syntax highlighting on/off for the current tab.
   void toggleSyntaxHighlighting();
+
+  //! Toggles line numbering for all tabs.
+  void toggleLineNumbering();
 
   //! Switches to the _tab-th tab. If it does not exist, returns.
   void switchToTab(int _tab);
@@ -85,6 +91,9 @@ private slots:
   void textMonospace();
   void textCourier();
   void textAndale();
+
+  //! Updates the line and column labels in th status bar.
+  void updatePos(int line, int col);
 
 private:
   //! Code sequences common to all constructors.
@@ -143,6 +152,9 @@ private:
   */
   QString textFont;
 
+  //! True if the line numbers column is visible.
+  bool lineNumbering;
+
   QMenu *fileMenu;
   QMenu *editMenu;
   QMenu *viewMenu;
@@ -163,11 +175,15 @@ private:
   QAction *monospaceAct;
   QAction *courierAct;
   QAction *andaleAct;
+  QAction *lineNumbersAct;
   QAction *aboutAct;
   QAction *aboutQtAct;
   QAction *tabCloseAction;
 
   QToolButton *tabCloseButton;
+
+  //! Placed in the status bar, show the number of the line and column.
+  QLabel *lineLabel, *columnLabel;
 };
 
 #endif
