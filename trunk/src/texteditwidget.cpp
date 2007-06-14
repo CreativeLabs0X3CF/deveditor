@@ -24,8 +24,6 @@
 
 #include "highlighter.h"
 
-//TODO Make the current line highlighted in some light gray.
-
 NumberBar::NumberBar(QWidget *parent) : QWidget(parent), edit(0) {
   setFixedWidth(fontMetrics().width(QString("0") + 3)); // Changed during paintEvent()
 }
@@ -62,7 +60,6 @@ void NumberBar::paintEvent(QPaintEvent *) {
     const QString txt = QString::number(lineCount);
     p.drawText(width() - fm.width(txt) - 2, qRound(position.y()) - contentsY + ascent, txt);
   }
-  //TODO Optimize this.
 
   const QString txt = QString::number(lineCount);
   setFixedWidth(fontMetrics().width(txt) + 3);
@@ -170,6 +167,17 @@ QFont* TextEditWidget::getFont() {
 }
 
 void TextEditWidget::cursorChanged() {
+  static QTextBlock cblock;
+  static int lineCount;
+
+  //TODO Fix erronous delete row after bug.
+  //TODO Optimize.
+
+  currentLine = view->textCursor().blockNumber() + 1;
+
+  if (currentLine == lineCount)
+    return;
+
   bool mod = getDocument()->isModified();
 
   QTextBlock block = highlight.block();
@@ -178,21 +186,29 @@ void TextEditWidget::cursorChanged() {
   fmt.setBackground(bg);
   highlight.setBlockFormat(fmt);
 
-  int lineCount = 1;
-  currentLine = view->textCursor().blockNumber() + 1;
-  for (QTextBlock block = view->document()->begin(); block.isValid(); block = block.next(), ++lineCount)
+//   if (cblock.isValid()) {
+//     qWarning("Previous block is valid. Attempting to remove highlight");
+//     highlight = QTextCursor(cblock);
+//     highlight.setBlockFormat(fmt);
+//     qWarning("Highlight removed");
+//   }
+
+  lineCount = 1;
+  for (cblock = view->document()->begin(); cblock.isValid(); cblock = cblock.next(), ++lineCount)
     if (lineCount == currentLine) {
-      fmt = block.blockFormat();
+      fmt = cblock.blockFormat();
       QColor bg = QColor(192, 192, 192, 100);
       fmt.setBackground(bg);
 
-      highlight = QTextCursor(block);
+      highlight = QTextCursor(cblock);
       highlight.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
       highlight.setBlockFormat(fmt);
 
       break;
+    } else {
+      highlight = QTextCursor(cblock); // I'll go to Hell for this.
+      highlight.setBlockFormat(fmt);
     }
-  //TODO Optimize this.
 
   getDocument()->setModified(mod);
 

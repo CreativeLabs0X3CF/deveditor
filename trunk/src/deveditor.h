@@ -32,8 +32,14 @@ class QTabWidget;
 class QToolButton;
 class QLabel;
 class TextEditWidget;
+class QTextBrowser;
+class QStringList;
+class Environment;
 
-//! Main window
+/*!
+  Main window
+  @author Alexandru Scvortov <scvalex@gmail.com>
+*/
 class DevEditor:public QMainWindow {
   Q_OBJECT
 
@@ -88,12 +94,19 @@ private slots:
   void textSmaller();
 
   //! Sets the font to the specifed family.
-  void textMonospace();
-  void textCourier();
-  void textAndale();
+  void setFontFamily();
 
   //! Updates the line and column labels in th status bar.
   void updatePos(int line, int col);
+
+  //! Creates a new programme.
+  void newProg();
+
+  //! Opens a programme.
+  void openProg();
+
+  //! Opens a recent programme.
+  void openRecentProg();
 
 private:
   //! Code sequences common to all constructors.
@@ -103,6 +116,7 @@ private:
   void createMenus();
   void createToolBars();
   void createStatusBar();
+  void createDockWindows();
 
   /*!
     Saves/loads the global settings:
@@ -110,6 +124,7 @@ private:
      * "size": the size of the window.
      * "pointSize": the size of the text.
      * "fontFamily": the font family of the text.
+     * and a few more
   */
   void readSettings();
   void writeSettings();
@@ -118,9 +133,6 @@ private:
   void loadFile(const QString &fileName);
   bool saveFile(const QString &fileName);
   void setCurrentFile(const QString &fileName);
-
-  //! @return The base --- last part of the filename.
-  QString strippedName(const QString &fullFileName);
 
   /*!
     Closes the index-th tab.
@@ -155,12 +167,24 @@ private:
   //! True if the line numbers column is visible.
   bool lineNumbering;
 
+  //! The path of the programmes directories.
+  QString progPath;
+
+  //! The path of the current programme.
+  QString progName;
+
+  //! The list of recent programmes.
+  QStringList recentProgs;
+
   QMenu *fileMenu;
   QMenu *editMenu;
   QMenu *viewMenu;
-  QMenu *helpMenu;
+  QMenu *progMenu;
+  QMenu *deMenu;
   QToolBar *fileToolBar;
   QToolBar *editToolBar;
+  QToolBar *viewToolBar;
+  QToolBar *otherToolBar;
   QAction *newAct;
   QAction *openAct;
   QAction *saveAct;
@@ -172,10 +196,11 @@ private:
   QAction *highlightAct;
   QAction *textBiggerAct;
   QAction *textSmallerAct;
-  QAction *monospaceAct;
-  QAction *courierAct;
-  QAction *andaleAct;
   QAction *lineNumbersAct;
+  QAction *fontFamilyAct[3];
+  QAction *newProgAct;
+  QAction *openProgAct;
+  QMenu *openRecentProgMenu;
   QAction *aboutAct;
   QAction *aboutQtAct;
   QAction *tabCloseAction;
@@ -184,6 +209,18 @@ private:
 
   //! Placed in the status bar, show the number of the line and column.
   QLabel *lineLabel, *columnLabel;
+
+  //! Windows for relaying messages to users.
+  QTextBrowser *msgBox;
+
+  //! Shows the message in the msgBox.
+  void showMsg(QString text);
+
+  //! The environment.
+  Environment *env;
+
+  //! @internal This is the function that actually opens the programme.
+  void openProgFunc(QString fileName);
 };
 
 #endif

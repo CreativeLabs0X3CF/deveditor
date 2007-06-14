@@ -30,6 +30,10 @@ class QHBoxLayout;
 class Highlighter;
 class QTextDocument;
 
+/*!
+  The column containing the line numbers.
+  @author Alexandru Scvortov <scvalex@gmail.com>
+*/
 class NumberBar : public QWidget {
   Q_OBJECT
 
@@ -47,6 +51,10 @@ protected:
   QRect currentRect;
 };
 
+/**
+  The text editor.
+  @author Alexandru Scvortov <scvalex@gmail.com>
+*/
 class TextEditWidget : public QFrame {
   Q_OBJECT
 
