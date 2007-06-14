@@ -1,0 +1,9 @@
+#labels screenshots,Phase-Design
+= ScreenShots =
+
+This page holds screen shots of the project at different moments in time.
+
+= 14 June 2007 =
+[http://deveditor.googlecode.com/svn/trunk/shots/shot-14.06.2007.png]
+
+----
