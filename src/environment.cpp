@@ -18,45 +18,41 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#ifndef HIGHLIGHTER_H
-#define HIGHLIGHTER_H
+#include <QtCore>
+#include <QtGui>
 
-#include <QSyntaxHighlighter>
+#include "environment.h"
 
-#include <QHash>
-#include <QTextCharFormat>
+Environment::Environment() {
+}
 
-/*!
-  Class to provide syntax highlighting.
-  @author Alexandru Scvortov <scvalex@gmail.com>
-*/
-class Highlighter : public QSyntaxHighlighter {
-  Q_OBJECT
+Environment::~Environment() {
+}
 
-public:
-  Highlighter(QTextDocument *parent = 0);
+QString Environment::strippedName(const QString &fullFileName) {
+  return QFileInfo(fullFileName).fileName();
+}
 
-protected:
-  void highlightBlock(const QString &text);
+QString Environment::lastDir(const QString &fullFileName) {
+  if (!exists(fullFileName))
+    return fullFileName;
 
-  struct HighlightingRule {
-    QRegExp pattern;
-    QTextCharFormat format;
-  };
-  QVector<HighlightingRule> highlightingRules;
+  QStringList dirs = QFileInfo(fullFileName).absolutePath().split("/");
+  return dirs[dirs.count() - 1];
+}
 
-  QRegExp commentStartExpression;
-  QRegExp commentEndExpression;
+void Environment::mkdir(const QString &fullFileName) {
+  QDir().mkdir(fullFileName);
+}
 
-  QTextCharFormat dataTypeFormat;
-  QTextCharFormat keywordFormat;
-  QTextCharFormat classFormat;
-  QTextCharFormat numberFormat;
-  QTextCharFormat singleLineCommentFormat;
-  QTextCharFormat multiLineCommentFormat;
-  QTextCharFormat quotationFormat;
-  QTextCharFormat qMacroFormat;
-  QTextCharFormat preprocessorFormat;
-};
+bool Environment::exists(const QString &fullFileName) {
+  if (QDir(fullFileName).exists() || QFile(fullFileName).exists())
+    return true;
+  return false;
+}
 
-#endif
+bool Environment::isDir(const QString &path) {
+  if (QDir(path).exists())
+    return true;
+  return false;
+}

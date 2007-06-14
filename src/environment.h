@@ -18,45 +18,43 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#ifndef HIGHLIGHTER_H
-#define HIGHLIGHTER_H
 
-#include <QSyntaxHighlighter>
+#ifndef ENVIRONMENT_H
+#define ENVIRONMENT_H
 
-#include <QHash>
-#include <QTextCharFormat>
+class QString;
 
 /*!
-  Class to provide syntax highlighting.
-  @author Alexandru Scvortov <scvalex@gmail.com>
+  Class that provieds data about the environment --- platform, paths, etc.
+	@author Alexandru Scvortov <scvalex@gmail.com>
 */
-class Highlighter : public QSyntaxHighlighter {
-  Q_OBJECT
-
+class Environment{
 public:
-  Highlighter(QTextDocument *parent = 0);
+  Environment();
+
+  ~Environment();
+
+  //! @return The base --- last part of the filename.
+  QString strippedName(const QString &fullFileName);
+
+  //! @return The last directory in the path, i.e. the programme name.
+  QString lastDir(const QString &fullFileName);
+
+  //! Creates a the specified directory if it does no exist.
+  void mkdir(const QString &fullFileName);
+
+  //! @return True if the file or directory exists. False otherwise.
+  bool exists(const QString &fullFileName);
+
+  //! @return True if the path exists and is a directory. False otherwise.
+  bool isDir(const QString &path);
 
 protected:
-  void highlightBlock(const QString &text);
+  //! True if platform is Windows. False otherwise.
+  bool isWindows;
 
-  struct HighlightingRule {
-    QRegExp pattern;
-    QTextCharFormat format;
-  };
-  QVector<HighlightingRule> highlightingRules;
-
-  QRegExp commentStartExpression;
-  QRegExp commentEndExpression;
-
-  QTextCharFormat dataTypeFormat;
-  QTextCharFormat keywordFormat;
-  QTextCharFormat classFormat;
-  QTextCharFormat numberFormat;
-  QTextCharFormat singleLineCommentFormat;
-  QTextCharFormat multiLineCommentFormat;
-  QTextCharFormat quotationFormat;
-  QTextCharFormat qMacroFormat;
-  QTextCharFormat preprocessorFormat;
+  //! True if platform is Unix. False otherwise.
+  bool isUnix;
 };
 
 #endif
