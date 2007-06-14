@@ -25,7 +25,7 @@
 #include "highlighter.h"
 
 NumberBar::NumberBar(QWidget *parent) : QWidget(parent), edit(0) {
-  setFixedWidth(fontMetrics().width(QString("0") + 3)); // Changed during paintEvent()
+  setFixedWidth(fontMetrics().width(QString("00") + 3)); // Changed during paintEvent()
 }
 
 NumberBar::~NumberBar() {
@@ -62,7 +62,10 @@ void NumberBar::paintEvent(QPaintEvent *) {
   }
 
   const QString txt = QString::number(lineCount);
-  setFixedWidth(fontMetrics().width(txt) + 3);
+  if (txt.length() >= 2)
+    setFixedWidth(fontMetrics().width(txt) + 3);
+  else
+    setFixedWidth(fontMetrics().width("00") + 3);
 }
 
 bool NumberBar::event(QEvent *event) {
@@ -175,7 +178,7 @@ void TextEditWidget::cursorChanged() {
 
   currentLine = view->textCursor().blockNumber() + 1;
 
-  if (currentLine == lineCount)
+  if ((currentLine == lineCount) && (currentLine != 1))
     return;
 
   bool mod = getDocument()->isModified();
@@ -206,7 +209,12 @@ void TextEditWidget::cursorChanged() {
 
       break;
     } else {
+      fmt = cblock.blockFormat();
+      QColor bg = view->palette().base().color();
+      fmt.setBackground(bg);
+
       highlight = QTextCursor(cblock); // I'll go to Hell for this.
+      highlight.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
       highlight.setBlockFormat(fmt);
     }
 

@@ -41,7 +41,7 @@ public:
   QString lastDir(const QString &fullFileName);
 
   //! Creates a the specified directory if it does no exist.
-  void mkdir(const QString &fullFileName);
+  bool mkdir(const QString &fullFileName);
 
   //! @return True if the file or directory exists. False otherwise.
   bool exists(const QString &fullFileName);
@@ -49,12 +49,36 @@ public:
   //! @return True if the path exists and is a directory. False otherwise.
   bool isDir(const QString &path);
 
+  /*!
+    Creates the specified file in the specified directory. If the directory does not exist, aborts and returs false. On succesful exit, returns true.
+    @param useTemplate If set to true, mkfile will search for a template and attempt to use it.
+  */
+  bool mkfile(const QString &dir, const QString &name, bool useTemplate = false);
+
+  //! @return The path to the home directory.
+  QString home() const;
+
+  //! @return The separator for the platform.
+  QChar separator() const;
+
+  //! @return A list of all openable/viewable (non-binary) files in the specified directory.
+  QStringList listViewableFiles(const QString &dir);
+
+  //! @return The path resulting from combining the specified paths.
+  QString unitePath(const QStringList &list) const;
+
+  //! @return True if the path is to a file and the file is readable.
+  bool isReadableFile(const QString &path);
+
 protected:
   //! True if platform is Windows. False otherwise.
   bool isWindows;
 
   //! True if platform is Unix. False otherwise.
   bool isUnix;
+
+  //! List of bad extensions.
+  QStringList badExts;
 };
 
 #endif

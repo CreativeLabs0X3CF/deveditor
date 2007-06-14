@@ -11,5 +11,6 @@
       <file>viewmag+.xpm</file>
       <file>next.xpm</file>
       <file>window_new.xpm</file>
+      <file>cpp.template</file>
 </qresource>
 </RCC>

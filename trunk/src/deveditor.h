@@ -57,10 +57,10 @@ private slots:
   void newFile();
 
   /*!
-    Pops up an open file dialog and opens the selected file.
+    If fileName is empty, pops up an open file dialog and opens the selected file, otherwise, just opens the specified file.
     @note If the file in the current tab is empty, the new file is opened into the same tab.
   */
-  void open();
+  void open(QString fileName = "");
 
   bool save();
   bool saveAs();
@@ -215,6 +215,12 @@ private:
 
   //! Shows the message in the msgBox.
   void showMsg(QString text);
+
+  //! Clears the message in the msgBox.
+  void clearMsgs();
+
+  //! The message displayed in msgBox;
+  QString msgs;
 
   //! The environment.
   Environment *env;
