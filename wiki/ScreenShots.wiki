@@ -8,4 +8,6 @@ This page holds screen shots of the project at different moments in time.
 
 DevEditor viewing it's own code. Running under Linux.
 
+Windows exe: [http://deveditor.googlecode.com/files/deveditor%20-%2007.06.14.exe]
+
 ----
