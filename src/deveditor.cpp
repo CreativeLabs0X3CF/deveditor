@@ -45,6 +45,8 @@ void DevEditor::init() {
   createMenus();
   createToolBars();
   createStatusBar();
+
+  msgs = "";
   createDockWindows();
 
   tabCloseButton = new QToolButton(this);
@@ -68,8 +70,7 @@ void DevEditor::init() {
   connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
   connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
 
-  showMsg("<b>Ready!</b>");
-  showMsg("Still ready!");
+  openProgFunc(progName);
 }
 
 DevEditor::DevEditor() {
@@ -156,9 +157,10 @@ void DevEditor::newFile() {
   setCurrentFile("");
 }
 
-void DevEditor::open() {
-  QString fileName = QFileDialog::getOpenFileName(this, "DevEditor", progName);
-  if (!fileName.isEmpty()) {
+void DevEditor::open(QString fileName) {
+  if (fileName.isEmpty())
+    fileName = QFileDialog::getOpenFileName(this, "DevEditor", progName);
+  if (!fileName.isEmpty() && (env->isReadableFile(fileName))) {
     if (curFile != "") {
       tabWidget->addTab(new TextEditWidget(tabWidget), "");
       switchToTab(tabWidget->count() - 1);
@@ -300,9 +302,12 @@ void DevEditor::updatePos(int line, int col) {
 }
 
 void DevEditor::showMsg(QString text) {
-  static QString msgs = "";
   msgs += text + "<br />";
   msgBox->setHtml(msgs);
+}
+
+void DevEditor::clearMsgs() {
+  msgs = "";
 }
 
 void DevEditor::createDockWindows() {
@@ -338,6 +343,8 @@ void DevEditor::newProg() {
 
   env->mkdir(fileName);
 
+  env->mkfile(fileName, "main.cpp", true);
+
   openProgFunc(fileName);
 }
 
@@ -350,8 +357,20 @@ void DevEditor::openProg() {
 }
 
 void DevEditor::openProgFunc(QString fileName) {
+  static bool firstGo = true;
+
+  if (!firstGo && (fileName == progName))
+    return;
+
+  firstGo = false;
+
+  if (fileName[fileName.length() - 1] != env->separator())
+    fileName += env->separator();
+
   progName = fileName;
   setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+
+  clearMsgs();
 
   for (int i(0); i < recentProgs.size(); ++i)
     if ((i >= 5) || (recentProgs[i] == progName)) {
@@ -361,6 +380,15 @@ void DevEditor::openProgFunc(QString fileName) {
 
   writeSettings();
   readSettings();
+
+  // Now, open all readable files in the current programme.
+  QStringList list = env->listViewableFiles(progName);
+  for (int i(0); i < list.count(); ++i) {
+    showMsg("Opening " + list[i]);
+    open(list[i]);
+  }
+  showMsg("-----------------------");
+  showMsg(QString("Total: %1 files loaded").arg(list.count()));
 }
 
 void DevEditor::openRecentProg() {
@@ -572,7 +600,7 @@ void DevEditor::readSettings() {
   recentProgs = settings.value("recentProgs").toStringList();
 
   if (!env->isDir(progPath))
-    progPath = ".";
+    progPath = env->home();
 
   if ((progName != "NoProject") && (!env->isDir(progName)))
     progName = "NoProject";
