@@ -1,4 +1,4 @@
-#labels screenshots,Phase-Design
+#labels Screenshots,Phase-Design
 = ScreenShots =
 
 This page holds screen shots of the project at different moments in time.
