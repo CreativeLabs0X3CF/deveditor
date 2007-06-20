@@ -364,8 +364,8 @@ void DevEditor::openProgFunc(QString fileName) {
 
   firstGo = false;
 
-  if (fileName[fileName.length() - 1] != env->separator())
-    fileName += env->separator();
+  if (fileName[fileName.length() - 1] != '/')
+    fileName += '/';
 
   progName = fileName;
   setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
@@ -409,7 +409,7 @@ bool DevEditor::compileAll() {
   QFileInfo info = QFileInfo(progName);
   QDir::setCurrent(info.absolutePath());
 
-  mb->message("Will try to compile every source file in " + shownName);
+  mb->message("Will try to compile every source file in " + env->lastDir(progName));
 
   QStringList sources = pi->sourceFiles();
   for (int i(0); i < sources.count(); ++i)

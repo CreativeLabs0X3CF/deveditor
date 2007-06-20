@@ -129,9 +129,6 @@ public:
   //! @return The path to the home directory.
   QString home() const;
 
-  //! @return The separator for the platform.
-  QChar separator() const;
-
   //! @return A list of all openable/viewable (non-binary) files in the specified directory.
   QStringList listViewableFiles(const QString &dir);
 

@@ -38,7 +38,7 @@ QStringList ProgInfo::sourceFiles() {
   QStringList list;
   for (int i(0); i < aux.count(); ++i)
     if ((aux[i].suffix() == "cpp") || (aux[i].suffix() == "c"))
-      list.push_back(progName + QDir::separator() + aux[i].fileName());
+      list.push_back(progName + '/' + aux[i].fileName());
 
   return list;
 }
@@ -49,7 +49,7 @@ QStringList ProgInfo::objectFiles() {
   QStringList list;
   for (int i(0); i < aux.count(); ++i)
     if (aux[i].suffix() == "o")
-      list.push_back(progName + QDir::separator() + aux[i].fileName());
+      list.push_back(progName + '/' + aux[i].fileName());
 
   return list;
 }
@@ -187,7 +187,7 @@ void EnvironmentConfigurationWidget::test() {
 }
 
 QString ProgInfo::exe() {
-  QStringList dirs = QFileInfo(progName).absolutePath().split(QDir::separator());
+  QStringList dirs = QFileInfo(progName).absolutePath().split('/');
   QString binName = progName + dirs[dirs.count() - 1];
 
 #ifdef Q_WS_WIN
@@ -245,12 +245,12 @@ QString Environment::strippedName(const QString &fullFileName) {
 QString Environment::lastDir(const QString &fullFileName) {
   if (!exists(fullFileName)) {
     QString path = fullFileName;
-    if (path.data()[path.length() - 1] == QDir::separator())
+    if (path.data()[path.length() - 1] == '/')
       path.chop(1);
     return path;
   }
 
-  QStringList dirs = QFileInfo(fullFileName).absolutePath().split(QDir::separator());
+  QStringList dirs = QFileInfo(fullFileName).absolutePath().split('/');
   return dirs[dirs.count() - 1];
 }
 
@@ -280,7 +280,7 @@ bool Environment::mkfile(const QString &dir, const QString &name, bool useTempla
   if (!isDir(dir))
     return false;
 
-  QString path = dir + separator() + name;
+  QString path = dir + '/' + name;
   if (exists(path))
     return false;
 
@@ -321,10 +321,6 @@ QString Environment::home() const {
   return QDir::toNativeSeparators(QDir::homePath());
 }
 
-QChar Environment::separator() const {
-  return QDir::separator();
-}
-
 QStringList Environment::listViewableFiles(const QString &dir) {
   if (!isDir(dir))
     return QStringList();
@@ -356,8 +352,8 @@ QString Environment::unitePath(const QStringList &list) const {
   QString result;
   for (int i(0); i < list.count(); ++i) {
     result += list[i];
-    if ((i != list.count() - 1) && (result.data()[result.length() - 1] != separator()))
-      result += separator();
+    if ((i != list.count() - 1) && (result.data()[result.length() - 1] != '/'))
+      result += '/';
   }
   return result;
 }
@@ -386,10 +382,10 @@ bool Environment::compileFile(const QString &path, bool partOfBulkJob) {
   QString shortCommand;
 
   if (info.suffix() == "cpp") {
-    command = cpp + " -c " + " -o " + info.baseName() + ".o " + info.fileName() + ">& compile.log";
+    command = cpp + " -c " + " -o " + info.baseName() + ".o " + info.fileName();
     shortCommand = QFileInfo(cpp).fileName();
   } else if (info.suffix() == "c") {
-    command = cc + " -c " + " -o " + info.baseName() + ".o " + info.fileName()  + ">& compile.log";
+    command = cc + " -c " + " -o " + info.baseName() + ".o " + info.fileName();
     shortCommand = QFileInfo(cc).fileName();
   } else {
     if (mb)
@@ -397,6 +393,11 @@ bool Environment::compileFile(const QString &path, bool partOfBulkJob) {
 
     return false;
   }
+
+  if (isUnix)
+    command += " >& compile.log";
+  else if (isWindows)
+    command += " 2> compile.log";
 
   if (mb)
     mb->message(tr("compiling %1 (%2)").arg(info.fileName()).arg(shortCommand));
@@ -443,7 +444,7 @@ bool Environment::linkObjects(const QString &path) {
 
   mb->message("Will try to link every object file in " + lastDir(path));
 
-  QString objects = pi.objectFiles().join(" ");
+  QString objects = "\"" + pi.objectFiles().join("\" \"") + "\""; // Just in case someone uses spaces in somewhere in the path.
 
 //   if (mb)
 //     mb->message("Object files: " + objects);
@@ -467,7 +468,12 @@ bool Environment::linkObjects(const QString &path) {
   if (isWindows)
     exeName += ".exe";
 
-  QString command = shortCommand + " -o " + exeName + " " + objects + " >& link.log";
+  QString command = shortCommand + " -o \"" + exeName + "\" " + objects;
+
+  if (isUnix)
+    command += " >& link.log";
+  else if (isWindows)
+    command += " 2> link.log";
 
 //   if (mb)
 //     mb->message(command);
@@ -500,9 +506,9 @@ bool Environment::linkObjects(const QString &path) {
 
 bool Environment::run(const QString &path) {
   if (isUnix) {
-    qWarning("About to run %s", QString("xterm -e \".%1 && echo \\\"Press return to continue\\\" && read\"").arg(path).toStdString().c_str());
     return (system(QString("xterm -e \"%1 && echo \\\"Press return to continue\\\" && read\"").arg(path).toStdString().c_str()) == 0);
   } else if (isWindows) {
+    return (system(QString("\"%1\" && pause").arg(path).toStdString().c_str()) == 0);
   }
 
   return false;
