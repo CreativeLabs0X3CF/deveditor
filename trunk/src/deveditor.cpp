@@ -23,6 +23,7 @@
 #include "deveditor.h"
 #include "texteditwidget.h"
 #include "environment.h"
+#include "messagebox.h"
 
 #include <QTextStream>
 #include <QCloseEvent>
@@ -31,7 +32,8 @@
 #include <assert.h>
 
 void DevEditor::init() {
-  env = new Environment;
+  env = new Environment(this);
+  pi = new ProgInfo(".");
 
   lineNumbering = true;
 
@@ -46,7 +48,6 @@ void DevEditor::init() {
   createToolBars();
   createStatusBar();
 
-  msgs = "";
   createDockWindows();
 
   tabCloseButton = new QToolButton(this);
@@ -176,6 +177,10 @@ void DevEditor::open(QString fileName) {
   }
 }
 
+void DevEditor::saveAll() {
+  //TODO Implement saveAll().
+}
+
 bool DevEditor::save() {
   if (curFile.isEmpty())
     return saveAs();
@@ -237,6 +242,7 @@ void DevEditor::switchToTab(int _tab) {
   disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
   disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
   disconnect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+  disconnect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
 
   textEdit = (TextEditWidget*)tabWidget->currentWidget();
   assert(textEdit != 0);
@@ -250,6 +256,7 @@ void DevEditor::switchToTab(int _tab) {
   connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
   connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
   connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+  connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
 
   curFile = textEdit->getCurFile();
   shownName = textEdit->getShownName();
@@ -301,24 +308,17 @@ void DevEditor::updatePos(int line, int col) {
   columnLabel->setText(tr("Col: %1").arg(col));
 }
 
-void DevEditor::showMsg(QString text) {
-  msgs += text + "<br />";
-  msgBox->setHtml(msgs);
-}
-
-void DevEditor::clearMsgs() {
-  msgs = "";
-}
-
 void DevEditor::createDockWindows() {
-  msgBox = new QTextBrowser(this);
-  msgBox->setReadOnly(true);
-  msgBox->setMaximumHeight(fontMetrics().height() * 4);
+  mb = new MessageBox(this);
+
+  env->setMessageBox(mb);
+
+  mb->setMaximumHeight(fontMetrics().height() * 6);
 
   QDockWidget *dock = new QDockWidget(tr("Messages"), this);
   dock->setAllowedAreas(Qt::BottomDockWidgetArea);
   dock->setTitleBarWidget(0);
-  dock->setWidget(msgBox);
+  dock->setWidget(mb);
 
   addDockWidget(Qt::BottomDockWidgetArea, dock);
 
@@ -370,7 +370,9 @@ void DevEditor::openProgFunc(QString fileName) {
   progName = fileName;
   setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
 
-  clearMsgs();
+  pi->setProg(progName);
+
+  mb->reset();
 
   for (int i(0); i < recentProgs.size(); ++i)
     if ((i >= 5) || (recentProgs[i] == progName)) {
@@ -384,11 +386,11 @@ void DevEditor::openProgFunc(QString fileName) {
   // Now, open all readable files in the current programme.
   QStringList list = env->listViewableFiles(progName);
   for (int i(0); i < list.count(); ++i) {
-    showMsg("Opening " + list[i]);
+    mb->message("Opening " + list[i]);
     open(list[i]);
   }
-  showMsg("-----------------------");
-  showMsg(QString("Total: %1 files loaded").arg(list.count()));
+  mb->message("-----------------------");
+  mb->message(QString("Total: %1 files loaded").arg(list.count()));
 }
 
 void DevEditor::openRecentProg() {
@@ -397,7 +399,52 @@ void DevEditor::openRecentProg() {
     openProgFunc(action->data().toString());
 }
 
+void DevEditor::compileCurrentFile() {
+  env->compileFile(curFile);
+}
+
+bool DevEditor::compileAll() {
+  mb->reset();
+
+  QFileInfo info = QFileInfo(progName);
+  QDir::setCurrent(info.absolutePath());
+
+  mb->message("Will try to compile every source file in " + shownName);
+
+  QStringList sources = pi->sourceFiles();
+  for (int i(0); i < sources.count(); ++i)
+    if (!env->compileFile(sources[i], true))
+      return false;
+
+  mb->good(QObject::tr("*** Succes ***"));
+  return true;
+}
+
+bool DevEditor::linkObjects() {
+  return env->linkObjects(progName);
+}
+
+void DevEditor::runProg() {
+  mb->reset();
+
+  mb->message(tr("Attempting to run %1").arg(pi->exe()));
+
+  if (env->run(pi->exe()))
+    mb->good(QObject::tr("*** Succes ***"));
+  else
+    mb->error(QObject::tr("*** Problems ***"));
+}
+
+void DevEditor::buildProg() {
+  if (compileAll()) // Link only if compile is succesful.
+    linkObjects();
+}
+
 void DevEditor::createActions() {
+  compileFileAct = new QAction(tr("Compile"), this);
+  compileFileAct->setStatusTip(tr("Compiles the current file"));
+  connect(compileFileAct, SIGNAL(triggered()), this, SLOT(compileCurrentFile()));
+
   newAct = new QAction(QIcon(":/filenew.xpm"), tr("&New"), this);
   newAct->setShortcut(tr("Ctrl+N"));
   newAct->setStatusTip(tr("Create a new file"));
@@ -479,6 +526,24 @@ void DevEditor::createActions() {
   lineNumbersAct->setChecked(true);
   connect(lineNumbersAct, SIGNAL(triggered()), this, SLOT(toggleLineNumbering()));
 
+  runAct = new QAction(QIcon(":/run.xpm"), tr("Run"), this);
+  runAct->setShortcut(tr("F9"));
+  runAct->setStatusTip(tr("Runs the programme"));
+  connect(runAct, SIGNAL(triggered()), this, SLOT(runProg()));
+
+  buildAct = new QAction(QIcon(":/configure.xpm"), tr("Build"), this);
+  buildAct->setShortcut(tr("F8"));
+  buildAct->setStatusTip(tr("Builds the programme"));
+  connect(buildAct, SIGNAL(triggered()), this, SLOT(buildProg()));
+
+  compileAct = new QAction(tr("Compile"), this);
+  compileAct->setStatusTip(tr("Compiles all source files"));
+  connect(compileAct, SIGNAL(triggered()), this, SLOT(compileAll()));
+
+  linkAct = new QAction(tr("Link"), this);
+  linkAct->setStatusTip(tr("Links the objects into an executable"));
+  connect(linkAct, SIGNAL(triggered()), this, SLOT(linkObjects()));
+
   newProgAct = new QAction(QIcon(":window_new.xpm"), tr("New"), this);
   newProgAct->setStatusTip(tr("Creates a new programme"));
   connect(newProgAct, SIGNAL(triggered()), this, SLOT(newProg()));
@@ -507,6 +572,8 @@ void DevEditor::createActions() {
 
 void DevEditor::createMenus() {
   deMenu = menuBar()->addMenu(tr("&DevEditor"));
+  deMenu->addAction(env->getConfigureAct());
+  deMenu->addSeparator();
   deMenu->addAction(aboutAct);
   deMenu->addAction(aboutQtAct);
   deMenu->addSeparator();
@@ -529,6 +596,12 @@ void DevEditor::createMenus() {
   viewMenu->addAction(lineNumbersAct);
 
   progMenu = menuBar()->addMenu(tr("&Programme"));
+  progMenu->addAction(runAct);
+  progMenu->addAction(buildAct);
+  progMenu->addSeparator();
+  progMenu->addAction(compileAct);
+  progMenu->addAction(linkAct);
+  progMenu->addSeparator();
   progMenu->addAction(newProgAct);
   progMenu->addAction(openProgAct);
   openRecentProgMenu = progMenu->addMenu(tr("Open recent"));
@@ -538,6 +611,8 @@ void DevEditor::createMenus() {
   fileMenu->addAction(openAct);
   fileMenu->addAction(saveAct);
   fileMenu->addAction(saveAsAct);
+  fileMenu->addSeparator();
+  fileMenu->addAction(compileFileAct);
 }
 
 void DevEditor::createToolBars() {
@@ -559,8 +634,12 @@ void DevEditor::createToolBars() {
 }
 
 void DevEditor::createStatusBar() {
-  lineLabel = new QLabel("Line: 0", this);
-  columnLabel = new QLabel("Col: 0", this);
+  QFrame *aux = new QFrame;
+  aux->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
+  aux->setLineWidth(2);
+
+  lineLabel = new QLabel("Line: 0", aux);
+  columnLabel = new QLabel("Col: 0", aux);
 
   QHBoxLayout *clbox = new QHBoxLayout;
   clbox->setSpacing(3);
@@ -569,22 +648,23 @@ void DevEditor::createStatusBar() {
   clbox->addWidget(lineLabel);
   clbox->addWidget(columnLabel);
 
-  QFrame *aux = new QFrame;
-  aux->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-  aux->setLineWidth(2);
   aux->setLayout(clbox);
 
-  QHBoxLayout *box = new QHBoxLayout;
-  box->setSpacing(3);
-  box->setMargin(0);
-  clbox->setContentsMargins(2, 0, 2, 0);
-  box->addSpacing(2000);
-  box->addWidget(aux);
+//   QHBoxLayout *box = new QHBoxLayout;
+//   box->setSpacing(3);
+//   box->setMargin(0);
+//   clbox->setContentsMargins(2, 0, 2, 0);
+//   box->addSpacing(2000);
+//   box->addWidget(aux);
+//
+//   aux = new QFrame;
+//   aux->setLayout(box);
 
-  aux = new QFrame;
-  aux->setLayout(box);
+//   esb = new ExtendedStatusBar(this);
+//   setStatusBar(0);
+//   setStatusBar(esb);
 
-  statusBar()->addWidget(aux);
+  statusBar()->addPermanentWidget(aux);
 
   statusBar()->showMessage(tr("Ready"));
 }
@@ -630,6 +710,7 @@ void DevEditor::writeSettings() {
 }
 
 bool DevEditor::maybeSave(bool canCancel) {
+  return true; //This just save everything.
   if (textEdit->getDocument()->isModified()) {
     int ret;
     if (canCancel)
@@ -714,5 +795,5 @@ void DevEditor::setCurrentFile(const QString &fileName) {
 }
 
 DevEditor::~DevEditor() {
-  delete env;
+  delete pi;
 }
