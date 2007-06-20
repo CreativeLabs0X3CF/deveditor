@@ -11,6 +11,11 @@
       <file>viewmag+.xpm</file>
       <file>next.xpm</file>
       <file>window_new.xpm</file>
-      <file>cpp.template</file>
+      <file>run.xpm</file>
+      <file>configure.xpm</file>
+      <file>apply.xpm</file>
+      <file>history_clear.xpm</file>
+      <file>package_system.xpm</file>
+      <file>main.cpp.template</file>
 </qresource>
 </RCC>

@@ -170,16 +170,20 @@ QFont* TextEditWidget::getFont() {
 }
 
 void TextEditWidget::cursorChanged() {
+  currentLine = view->textCursor().blockNumber() + 1;
+
+  emit cursorPositionChanged(currentLine, view->textCursor().columnNumber() + 1);
+
+  return; //TODO Think about this.
+
   static QTextBlock cblock;
   static int lineCount;
 
-  //TODO Fix erronous delete row after bug.
-  //TODO Optimize.
-
-  currentLine = view->textCursor().blockNumber() + 1;
-
   if ((currentLine == lineCount) && (currentLine != 1))
     return;
+
+  //TODO Fix erronous delete row after bug.
+  //TODO Optimize.
 
   bool mod = getDocument()->isModified();
 
@@ -219,8 +223,6 @@ void TextEditWidget::cursorChanged() {
     }
 
   getDocument()->setModified(mod);
-
-  emit cursorPositionChanged(currentLine, view->textCursor().columnNumber() + 1);
 }
 
 bool TextEditWidget::eventFilter(QObject *obj, QEvent *event) {

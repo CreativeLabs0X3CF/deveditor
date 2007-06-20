@@ -147,7 +147,7 @@
   <kdevtrollproject>
     <run>
       <mainprogram>/home/alex/projects/trunk/Qt/DevEditor/bin/deveditor</mainprogram>
-      <programargs>src/deveditor.cpp</programargs>
+      <programargs/>
       <directoryradio>executable</directoryradio>
       <globaldebugarguments/>
       <globalcwd>/home/alex/projects/trunk/Qt/DevEditor</globalcwd>
@@ -175,6 +175,7 @@
       <replacePaths>false</replacePaths>
       <disableDefaultOpts>true</disableDefaultOpts>
     </qmake>
+    <subclassing/>
   </kdevtrollproject>
   <workspace>
     <openfiles/>

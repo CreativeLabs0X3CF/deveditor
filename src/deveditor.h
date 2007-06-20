@@ -24,6 +24,7 @@
 
 #include <QMainWindow>
 #include <QCloseEvent>
+#include <QStatusBar>
 
 class QAction;
 class QFont;
@@ -35,6 +36,8 @@ class TextEditWidget;
 class QTextBrowser;
 class QStringList;
 class Environment;
+class MessageBox;
+class ProgInfo;
 
 /*!
   Main window
@@ -62,6 +65,7 @@ private slots:
   */
   void open(QString fileName = "");
 
+  void saveAll();
   bool save();
   bool saveAs();
   void about();
@@ -107,6 +111,21 @@ private slots:
 
   //! Opens a recent programme.
   void openRecentProg();
+
+  //! Compiles the current file.
+  void compileCurrentFile();
+
+  //! Compiles all source files.
+  bool compileAll();
+
+  //! Links the objects into an executable.
+  bool linkObjects();
+
+  //! Attempts to run the current programme.
+  void runProg();
+
+  //! Builds --- compiles and links --- the programme.
+  void buildProg();
 
 private:
   //! Code sequences common to all constructors.
@@ -185,10 +204,8 @@ private:
   QToolBar *editToolBar;
   QToolBar *viewToolBar;
   QToolBar *otherToolBar;
-  QAction *newAct;
-  QAction *openAct;
-  QAction *saveAct;
-  QAction *saveAsAct;
+  QAction *aboutAct;
+  QAction *aboutQtAct;
   QAction *exitAct;
   QAction *cutAct;
   QAction *copyAct;
@@ -201,32 +218,33 @@ private:
   QAction *newProgAct;
   QAction *openProgAct;
   QMenu *openRecentProgMenu;
-  QAction *aboutAct;
-  QAction *aboutQtAct;
   QAction *tabCloseAction;
+  QAction *runAct;
+  QAction *buildAct;
+  QAction *compileFileAct;
+  QAction *compileAct;
+  QAction *linkAct;
+  QAction *newAct;
+  QAction *openAct;
+  QAction *saveAct;
+  QAction *saveAsAct;
 
   QToolButton *tabCloseButton;
 
   //! Placed in the status bar, show the number of the line and column.
   QLabel *lineLabel, *columnLabel;
 
-  //! Windows for relaying messages to users.
-  QTextBrowser *msgBox;
-
-  //! Shows the message in the msgBox.
-  void showMsg(QString text);
-
-  //! Clears the message in the msgBox.
-  void clearMsgs();
-
-  //! The message displayed in msgBox;
-  QString msgs;
-
   //! The environment.
   Environment *env;
 
+  //! The lower section message box.
+  MessageBox *mb;
+
   //! @internal This is the function that actually opens the programme.
   void openProgFunc(QString fileName);
+
+  //! @internal Used to store info about the programme.
+  ProgInfo *pi;
 };
 
 #endif
