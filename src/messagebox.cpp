@@ -25,33 +25,79 @@
 #include "messagebox.h"
 
 MessageBox::MessageBox(QWidget *parent) : QTextBrowser(parent), msgs("") {
+    setOpenLinks(false);
+
+    connect(this, SIGNAL(anchorClicked(const QUrl&)), this, SLOT(moveTo(const QUrl&)));
 }
 
+MessageBox::~MessageBox() {}
 
-MessageBox::~MessageBox() {
+void MessageBox::moveTo(const QUrl &url) {
+//   qWarning("URL is %s", url.toString().toStdString().c_str());
+    if (url.toString().indexOf('#') != -1) {
+        QString aux = url.toString();
+        aux.chop(aux.count() - aux.indexOf('#'));
+        emit switchToFile(aux);
+//     qWarning("Switching to file %s", aux.toStdString().c_str());
+        emit moveToLine(url.toString().right(url.toString().count() - url.toString().indexOf('#') - 1).toInt());
+        qWarning("Moving to line %d", url.toString().right(url.toString().count() - url.toString().indexOf('#') - 1).toInt());
+    } else {
+        emit switchToFile(url.toString());
+//     qWarning("Switching to file %s", url.toString().toStdString().c_str());
+    }
 }
 
 void MessageBox::reset() {
-  msgs = "";
-  setHtml(msgs);
+    msgs = "";
+    setHtml(msgs);
 }
 
 void MessageBox::message(const QString &text) {
-  msgs += "<div>" + text + "</div>";
-  setHtml(msgs);
+    msgs += "<div>" + text + "</div>";
+    setHtml(msgs);
 }
 
 void MessageBox::warn(const QString &text) {
-  msgs += "<div style=\"color: #F479F4;\">" + text + "</div>";
-  setHtml(msgs);
+    QString fileName = "";
+    QString lineNoStr = "";
+    int c = 0;
+    while ((c < text.count()) && (text[c] != ':'))
+        fileName += text[c++];
+
+    ++c;
+
+    while ((c < text.count()) && (text[c] != ':'))
+        lineNoStr += text[c++];
+
+    if (lineNoStr.toInt()) {
+        msgs += QString("<a href=\"%1#%2\"><div style=\"color: #F479F4; text-decoration: none;\">").arg(fileName).arg(lineNoStr) + text + "</div></a>";
+    } else {
+        msgs += QString("<a href=\"%1\"><div style=\"color: #F479F4; text-decoration: none;\">").arg(fileName) + text + "</div></a>";
+    }
+    setHtml(msgs);
 }
 
 void MessageBox::error(const QString &text) {
-  msgs += "<div style=\"color: #FF0000;\">" + text + "</div>";
-  setHtml(msgs);
+    QString fileName = "";
+    QString lineNoStr = "";
+    int c = 0;
+    while ((c < text.count()) && (text[c] != ':'))
+        fileName += text[c++];
+
+    ++c;
+
+    while ((c < text.count()) && (text[c] != ':'))
+        lineNoStr += text[c++];
+
+    if (lineNoStr.toInt()) {
+        msgs += QString("<a href=\"%1#%2\"><div style=\"color: #FF0000; text-decoration: none;\">").arg(fileName).arg(lineNoStr) + text + "</div></a>";
+    } else {
+        msgs += QString("<a href=\"%1\"><div style=\"color: #FF0000; text-decoration: none;\">").arg(fileName) + text + "</div></a>";
+    }
+    setHtml(msgs);
 }
 
 void MessageBox::good(const QString &text) {
-  msgs += "<div style=\"color: #008000;\">" + text + "</div>";
-  setHtml(msgs);
+    msgs += "<div style=\"color: #008000;\">" + text + "</div>";
+    setHtml(msgs);
 }

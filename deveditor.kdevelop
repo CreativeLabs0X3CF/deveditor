@@ -16,10 +16,13 @@
       <part>kdevctags2</part>
       <part>kdevdebugger</part>
       <part>kdevdoxygen</part>
+      <part>kdevkonsoleview</part>
       <part>kdevfilegroups</part>
+      <part>kdevfilelist</part>
       <part>kdevfileselector</part>
       <part>kdevdistpart</part>
       <part>kdevgrepview</part>
+      <part>kdevtools</part>
       <part>kdevvalgrind</part>
     </ignoreparts>
     <projectname>DevEditor</projectname>

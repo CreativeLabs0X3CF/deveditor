@@ -31,32 +31,32 @@
   @author Alexandru Scvortov <scvalex@gmail.com>
 */
 class Highlighter : public QSyntaxHighlighter {
-  Q_OBJECT
+    Q_OBJECT
 
 public:
-  Highlighter(QTextDocument *parent = 0);
+    Highlighter(QTextDocument *parent = 0);
 
 protected:
-  void highlightBlock(const QString &text);
+    void highlightBlock(const QString &text);
 
-  struct HighlightingRule {
-    QRegExp pattern;
-    QTextCharFormat format;
-  };
-  QVector<HighlightingRule> highlightingRules;
+    struct HighlightingRule {
+        QRegExp pattern;
+        QTextCharFormat format;
+    };
+    QVector<HighlightingRule> highlightingRules;
 
-  QRegExp commentStartExpression;
-  QRegExp commentEndExpression;
+    QRegExp commentStartExpression;
+    QRegExp commentEndExpression;
 
-  QTextCharFormat dataTypeFormat;
-  QTextCharFormat keywordFormat;
-  QTextCharFormat classFormat;
-  QTextCharFormat numberFormat;
-  QTextCharFormat singleLineCommentFormat;
-  QTextCharFormat multiLineCommentFormat;
-  QTextCharFormat quotationFormat;
-  QTextCharFormat qMacroFormat;
-  QTextCharFormat preprocessorFormat;
+    QTextCharFormat dataTypeFormat;
+    QTextCharFormat keywordFormat;
+    QTextCharFormat classFormat;
+    QTextCharFormat numberFormat;
+    QTextCharFormat singleLineCommentFormat;
+    QTextCharFormat multiLineCommentFormat;
+    QTextCharFormat quotationFormat;
+    QTextCharFormat qMacroFormat;
+    QTextCharFormat preprocessorFormat;
 };
 
 #endif

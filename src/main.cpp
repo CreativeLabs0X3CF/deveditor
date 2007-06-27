@@ -23,20 +23,20 @@
 #include "deveditor.h"
 
 int main(int argc, char *argv[]) {
-  Q_INIT_RESOURCE(application);
-  QApplication app(argc, argv);
-  DevEditor *mw;
+    Q_INIT_RESOURCE(application);
+    QApplication app(argc, argv);
+    DevEditor *mw;
 
-  if (argc == 1)
-    mw = new DevEditor();
-  else
-    mw = new DevEditor(argv[1]);
+    if (argc == 1)
+        mw = new DevEditor();
+    else
+        mw = new DevEditor(argv[1]);
 
-  mw->show();
+    mw->show();
 
-  int retval = app.exec();
+    int retval = app.exec();
 
-  delete mw;
+    delete mw;
 
-  return retval;
+    return retval;
 }
