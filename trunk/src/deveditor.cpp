@@ -32,623 +32,770 @@
 #include <assert.h>
 
 void DevEditor::init() {
-  env = new Environment(this);
-  pi = new ProgInfo(".");
+    env = new Environment(this);
+    pi = new ProgInfo(".");
 
-  lineNumbering = true;
+    lineNumbering = true;
 
-  tabWidget = new QTabWidget(this);
+    tabWidget = new QTabWidget(this);
 
-  setCentralWidget(tabWidget);
+    setCentralWidget(tabWidget);
+    setFocusProxy(tabWidget);
 
-  textEdit = new TextEditWidget(tabWidget);
+    textEdit = new TextEditWidget(tabWidget);
 
-  createActions();
-  createMenus();
-  createToolBars();
-  createStatusBar();
+    createActions();
+    createMenus();
+    createToolBars();
+    createStatusBar();
 
-  createDockWindows();
+    createDockWindows();
 
-  tabCloseButton = new QToolButton(this);
-  tabCloseButton->setDefaultAction(tabCloseAction);
-  tabWidget->setCornerWidget(tabCloseButton);
-  connect(tabCloseButton, SIGNAL(clicked()), this, SLOT(removeTab()));
+    connect(env, SIGNAL(canCompileChanged(bool)), this, SLOT(canCompileChanged(bool))); // This should be placed after createActions();
+    if (env->getCanCompile())
+        enableCLActs();
+    else
+        disableCLActs();
 
-  readSettings();
+    tabCloseButton = new QToolButton(this);
+    tabCloseButton->setDefaultAction(tabCloseAction);
+    tabWidget->setCornerWidget(tabCloseButton);
+    connect(tabCloseButton, SIGNAL(clicked()), this, SLOT(removeTab()));
 
-  connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
-  connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+    readSettings();
 
-  setCurrentFile("");
+    connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+    connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
-  tabWidget->addTab(textEdit, shownName);
-  textEdit->getFont()->setPointSize(textSize);
-  textEdit->getFont()->setFamily(textFont);
-  textEdit->updateFont();
-  textEdit->setLineNumbering(lineNumbering);
-  connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
-  connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
-  connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+    setCurrentFile("");
 
-  openProgFunc(progName);
+    tabWidget->addTab(textEdit, shownName);
+    textEdit->getFont()->setPointSize(textSize);
+    textEdit->getFont()->setFamily(textFont);
+    textEdit->updateFont();
+    textEdit->setLineNumbering(lineNumbering);
+    connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
+    connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
+    connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+
+    openProgFunc(progName);
 }
 
 DevEditor::DevEditor() {
-  init();
+    init();
 }
 
 DevEditor::DevEditor(char *_filename) {
-  init();
+    init();
 
-  QFile file(_filename);
-  if (file.exists())
-    loadFile(QString(_filename));
-  else
-    qWarning("Unable to open %s", _filename);
+    QFile file(_filename);
+    if (file.exists())
+        loadFile(QString(_filename));
+    else
+        qWarning("Unable to open %s", _filename);
+}
+
+DevEditor::~DevEditor() {
+    delete pi;
+}
+
+bool DevEditor::switchToFile(const QString &fileName) {
+//   qWarning("Switching to %s", fileName.toStdString().c_str());
+
+    int i(0);
+    while ((i < tabWidget->count()) && (((TextEditWidget*)tabWidget->widget(i))->getShownName() != fileName))
+        ++i;
+
+    if (i == tabWidget->count())
+        return false;
+
+    switchToTab(i);
+
+    return true;
 }
 
 void DevEditor::closeTab(int index, bool force) {
-  if ((index < 0) || (index >= tabWidget->count())) {
-    qWarning("Warning: Tried to close tab %d, but there are only %d tabs.\n", index, tabWidget->count());
-    return;
-  }
+    if ((index < 0) || (index >= tabWidget->count())) {
+        qWarning("Warning: Tried to close tab %d, but there are only %d tabs.\n", index, tabWidget->count());
+        return;
+    }
 
-  bool ret = true;
+    bool ret = true;
 
-  QWidget *aux = tabWidget->widget(index);
+    QWidget *aux = tabWidget->widget(index);
 
-  if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
-    ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
+    if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
+        ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
 
-  if (!force) {
-    if (!ret)
-      return;
-  }
+    if (!force) {
+        if (!ret)
+            return;
+    }
 
-  ((TextEditWidget*)tabWidget->widget(index))->getDocument()->clear();
+    ((TextEditWidget*)tabWidget->widget(index))->getDocument()->clear();
 
-  tabWidget->removeTab(index);
+    tabWidget->removeTab(index);
 
-  if (!force && (tabWidget->count() == 0)) {
-    newFile();
-  }
+    if (!force && (tabWidget->count() == 0)) {
+        newFile();
+    }
 
-  delete aux;
+    delete aux;
 }
 
 void DevEditor::closeEvent(QCloseEvent *event) {
-  bool modified = false;
-  for (int i = 0; i < tabWidget->count(); ++i)
-    if (((TextEditWidget *)tabWidget->widget(i))->getDocument()->isModified()) {
-      modified = true;
-      break;
+    bool modified = false;
+    for (int i = 0; i < tabWidget->count(); ++i)
+        if (((TextEditWidget *)tabWidget->widget(i))->getDocument()->isModified()) {
+            modified = true;
+            break;
+        }
+
+    if (modified) {
+        int ret = QMessageBox::warning(this, tr("DevEditor"),
+                                       tr("There are multiple tabs open\n"
+                                          "and some documents have been modified since last save.\n"
+                                          "Are you sure you want to exit?"),
+                                       QMessageBox::Yes | QMessageBox::Default,
+                                       QMessageBox::Cancel | QMessageBox::Escape);
+        if (ret == QMessageBox::Cancel) {
+            event->ignore();
+            return;
+        }
     }
 
-  if (modified) {
-    int ret = QMessageBox::warning(this, tr("DevEditor"),
-      tr("There are multiple tabs open\n"
-      "and some documents have been modified since last save.\n"
-      "Are you sure you want to exit?"),
-      QMessageBox::Yes | QMessageBox::Default,
-      QMessageBox::Cancel | QMessageBox::Escape);
-    if (ret == QMessageBox::Cancel) {
-      event->ignore();
-      return;
-    }
-  }
+    while (tabWidget->count())
+        closeTab(0, true);
 
-  while (tabWidget->count())
-    closeTab(0, true);
-
-  writeSettings();
-  event->accept();
+    writeSettings();
+    event->accept();
 }
 
 void DevEditor::newFile() {
-  tabWidget->addTab(new TextEditWidget(tabWidget), "");
-  switchToTab(tabWidget->count() - 1);
+    tabWidget->addTab(new TextEditWidget(tabWidget), "");
+    switchToTab(tabWidget->count() - 1);
 
-  textEdit->getFont()->setPointSize(textSize);
-  textEdit->getFont()->setFamily(textFont);
-  textEdit->updateFont();
-  textEdit->setLineNumbering(lineNumbering);
+    textEdit->getFont()->setPointSize(textSize);
+    textEdit->getFont()->setFamily(textFont);
+    textEdit->updateFont();
+    textEdit->setLineNumbering(lineNumbering);
 
-  connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
-  setCurrentFile("");
+    connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
+    setCurrentFile("");
 }
 
 void DevEditor::open(QString fileName) {
-  if (fileName.isEmpty())
-    fileName = QFileDialog::getOpenFileName(this, "DevEditor", progName);
-  if (!fileName.isEmpty() && (env->isReadableFile(fileName))) {
-    if (curFile != "") {
-      tabWidget->addTab(new TextEditWidget(tabWidget), "");
-      switchToTab(tabWidget->count() - 1);
+    if (fileName.isEmpty())
+        fileName = QFileDialog::getOpenFileName(this, "DevEditor", progName);
+    if (!fileName.isEmpty() && (env->isReadableFile(fileName))) {
+        if (curFile != "") {
+            tabWidget->addTab(new TextEditWidget(tabWidget), "");
+            switchToTab(tabWidget->count() - 1);
 
-      textEdit->getFont()->setPointSize(textSize);
-      textEdit->getFont()->setFamily(textFont);
-      textEdit->updateFont();
-      textEdit->setLineNumbering(lineNumbering);
+            textEdit->getFont()->setPointSize(textSize);
+            textEdit->getFont()->setFamily(textFont);
+            textEdit->updateFont();
+            textEdit->setLineNumbering(lineNumbering);
 
-      connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
+            connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
+        }
+        loadFile(fileName);
     }
-    loadFile(fileName);
-  }
 }
 
 void DevEditor::saveAll() {
-  //TODO Implement saveAll().
+    for (int i(0); i < tabWidget->count(); ++i) {
+        ((TextEditWidget*)tabWidget->widget(i))->save();
+        tabWidget->setTabText(i, tr("%1").arg(((TextEditWidget*)tabWidget->widget(i))->getShownName()));
+    }
 }
 
 bool DevEditor::save() {
-  if (curFile.isEmpty())
-    return saveAs();
-  else
-    return saveFile(curFile);
+    if (curFile.isEmpty())
+        return saveAs();
+    else
+        return saveFile(curFile);
 }
 
 bool DevEditor::saveAs() {
-  QString fileName = QFileDialog::getSaveFileName(this, "DevEditor", progName);
-  if (fileName.isEmpty())
-    return false;
+    QString fileName = QFileDialog::getSaveFileName(this, "DevEditor", progName);
+    if (fileName.isEmpty())
+        return false;
 
-  return saveFile(fileName);
+    return saveFile(fileName);
 }
 
 void DevEditor::about() {
-  QMessageBox::about(this, tr("About DevEditor"),
-    tr("<b>DevEditor</b> is an experimental programmer's editor.\n"
-    "Copyright 2007 Alexandru Scvortov <scvalex@gmail.com>"));
+    QMessageBox::about(this, tr("About DevEditor"),
+                       tr("<b>DevEditor</b> is an experimental programmer's editor.\n"
+                          "Copyright 2007 Alexandru Scvortov <scvalex@gmail.com>"));
 }
 
 void DevEditor::documentWasModified(bool changed) {
-  setWindowModified(changed);
+    setWindowModified(changed);
 
-  textEdit->getDocument()->setModified(changed); //NOTE This shouldn't do anything, but it does.
+    textEdit->getDocument()->setModified(changed); //NOTE This shouldn't do anything, but it does.
 
-  if (changed)
-    tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
-  else
-    tabWidget->setTabText(tabWidget->currentIndex(), tr("%1").arg(shownName));
+    if (changed)
+        tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
+    else
+        tabWidget->setTabText(tabWidget->currentIndex(), tr("%1").arg(shownName));
 }
 
 void DevEditor::documentWasModified() {
-  documentWasModified(true);
+    documentWasModified(true);
 }
 
 void DevEditor::toggleSyntaxHighlighting() {
-  textEdit->toggleHighlighting();
+    textEdit->toggleHighlighting();
 }
 
 void DevEditor::toggleLineNumbering() {
-  lineNumbering = !lineNumbering;
+    lineNumbering = !lineNumbering;
 
-  for (int i(0); i < tabWidget->count(); ++i)
-    ((TextEditWidget*)tabWidget->widget(i))->setLineNumbering(lineNumbering);
+    for (int i(0); i < tabWidget->count(); ++i)
+        ((TextEditWidget*)tabWidget->widget(i))->setLineNumbering(lineNumbering);
 
-  lineNumbersAct->setChecked(lineNumbering);
+    lineNumbersAct->setChecked(lineNumbering);
 }
 
 void DevEditor::switchToTab(int _tab) {
-  if (_tab >= tabWidget->count()) {
-    qWarning("Warning: Tried to switch to tab %d, but there are only %d tabs.\n", _tab, tabWidget->count());
-    return;
-  }
+    if (_tab >= tabWidget->count()) {
+        qWarning("Warning: Tried to switch to tab %d, but there are only %d tabs.\n", _tab, tabWidget->count());
+        return;
+    }
 
-  tabWidget->setCurrentIndex(_tab);
+    tabWidget->setCurrentIndex(_tab);
 
-  disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
-  disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
-  disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
-  disconnect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
-  disconnect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+    disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+    disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+    disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+    disconnect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+    disconnect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+    disconnect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
 
-  textEdit = (TextEditWidget*)tabWidget->currentWidget();
-  assert(textEdit != 0);
+    textEdit = (TextEditWidget*)tabWidget->currentWidget();
+    assert(textEdit != 0);
 
-  textEdit->getFont()->setPointSize(textSize);
-  textEdit->getFont()->setFamily(textFont);
-  textEdit->updateFont();
+    tabWidget->setFocusProxy(textEdit);
+    textEdit->getFont()->setPointSize(textSize);
+    textEdit->getFont()->setFamily(textFont);
+    textEdit->updateFont();
 
-  setSyntaxHighlightingMenuItem(textEdit->getHighlighting());
-  connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
-  connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
-  connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
-  connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
-  connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+    setSyntaxHighlightingMenuItem(textEdit->getHighlighting());
+    connect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
+    connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+    connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+    connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+    connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+    connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
 
-  curFile = textEdit->getCurFile();
-  shownName = textEdit->getShownName();
+    curFile = textEdit->getCurFile();
+    shownName = textEdit->getShownName();
 
-  setWindowModified(textEdit->getDocument()->isModified() || (curFile == ""));
-  setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+    setWindowModified(textEdit->getDocument()->isModified() || (curFile == ""));
+    setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
 }
 
 void DevEditor::removeTab() {
-  closeTab(tabWidget->currentIndex());
+    closeTab(tabWidget->currentIndex());
 }
 
 void DevEditor::setSyntaxHighlightingMenuItem(bool state) {
-  highlightAct->setChecked(state);
+    highlightAct->setChecked(state);
 }
 
 void DevEditor::textBigger() {
-  ++textSize;
-  textEdit->getFont()->setPointSize(textSize);
-  textEdit->updateFont();
+    ++textSize;
+    textEdit->getFont()->setPointSize(textSize);
+    textEdit->updateFont();
 }
 
 void DevEditor::textSmaller() {
-  if (textSize == 1)
-    return;
+    if (textSize == 1)
+        return;
 
-  --textSize;
-  textEdit->getFont()->setPointSize(textSize);
-  textEdit->updateFont();
+    --textSize;
+    textEdit->getFont()->setPointSize(textSize);
+    textEdit->updateFont();
 }
 
 void DevEditor::setFontFamily() {
-  QAction *action = qobject_cast<QAction *>(sender());
-  if (!action)
-    return;
+    QAction *action = qobject_cast<QAction *>(sender());
+    if (!action)
+        return;
 
-  textFont = action->data().toString();
-  textEdit->getFont()->setFamily(textFont);
-  textEdit->updateFont();
+    textFont = action->data().toString();
+    textEdit->getFont()->setFamily(textFont);
+    textEdit->updateFont();
 
-  for (int i(0); i < 3; ++i)
-    fontFamilyAct[i]->setChecked(false);
+    for (int i(0); i < 3; ++i)
+        fontFamilyAct[i]->setChecked(false);
 
-  action->setChecked(true);
+    action->setChecked(true);
 }
 
 void DevEditor::updatePos(int line, int col) {
-  lineLabel->setText(tr("Line: %1").arg(line));
-  columnLabel->setText(tr("Col: %1").arg(col));
+    lineLabel->setText(tr("Line: %1").arg(line));
+    columnLabel->setText(tr("Col: %1").arg(col));
 }
 
 void DevEditor::createDockWindows() {
-  mb = new MessageBox(this);
+    mb = new MessageBox(this);
+    mb->setFocusProxy(tabWidget);
 
-  env->setMessageBox(mb);
+    env->setMessageBox(mb);
 
-  mb->setMaximumHeight(fontMetrics().height() * 6);
+    mb->setMaximumHeight(fontMetrics().height() * 6);
 
-  QDockWidget *dock = new QDockWidget(tr("Messages"), this);
-  dock->setAllowedAreas(Qt::BottomDockWidgetArea);
-  dock->setTitleBarWidget(0);
-  dock->setWidget(mb);
+    messageDock = new QDockWidget(tr("Messages"), this);
+    messageDock->setAllowedAreas(Qt::BottomDockWidgetArea);
+    messageDock->setTitleBarWidget(0);
+    messageDock->setWidget(mb);
+    messageDock->hide();
 
-  addDockWidget(Qt::BottomDockWidgetArea, dock);
+    addDockWidget(Qt::BottomDockWidgetArea, messageDock);
 
-  viewMenu->addSeparator();
-  viewMenu->addAction(dock->toggleViewAction());
+    viewMenu->addSeparator();
+    viewMenu->addAction(messageDock->toggleViewAction());
 
-  otherToolBar->addAction(dock->toggleViewAction());
+    otherToolBar->addAction(messageDock->toggleViewAction());
+
+    connect(mb, SIGNAL(switchToFile(const QString&)), this, SLOT(switchToFile(const QString&)));
+    connect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
 }
 
 void DevEditor::newProg() {
-  QString fileName = QFileDialog::getSaveFileName(this, tr("New programme"), progPath, "");
-  if (fileName.isEmpty())
-    return;
+    QString fileName = QFileDialog::getSaveFileName(this, tr("New programme"), progPath, "");
+    if (fileName.isEmpty())
+        return;
 
-  if (env->exists(fileName)) {
-    QMessageBox::warning(this, tr("DevEditor"),
-        tr("The programme %1 already exists.\n"
-        "This is a problem. Solve it.").arg(fileName),
-        QMessageBox::Ok | QMessageBox::Default);
-    return;
-  }
+    if (env->exists(fileName)) {
+        QMessageBox::warning(this, tr("DevEditor"),
+                             tr("The programme %1 already exists.\n"
+                                "This is a problem. Solve it.").arg(fileName),
+                             QMessageBox::Ok | QMessageBox::Default);
+        return;
+    }
 
-  env->mkdir(fileName);
+    env->mkdir(fileName);
 
-  env->mkfile(fileName, "main.cpp", true);
+    env->mkfile(fileName, "main.cpp", true);
 
-  openProgFunc(fileName);
+    openProgFunc(fileName);
 }
 
 void DevEditor::openProg() {
-  QString fileName = QFileDialog::getExistingDirectory(this, tr("Open programme"), progPath, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-  if (fileName.isEmpty())
-    return;
+    QString fileName = QFileDialog::getExistingDirectory(this, tr("Open programme"), progPath, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (fileName.isEmpty())
+        return;
 
-  openProgFunc(fileName);
+    openProgFunc(fileName);
 }
 
 void DevEditor::openProgFunc(QString fileName) {
-  static bool firstGo = true;
+    static bool firstGo = true;
 
-  if (!firstGo && (fileName == progName))
-    return;
+    if (!firstGo && (fileName == progName))
+        return;
 
-  firstGo = false;
+    firstGo = false;
 
-  if (fileName[fileName.length() - 1] != '/')
-    fileName += '/';
+    if (fileName[fileName.length() - 1] != '/')
+        fileName += '/';
 
-  progName = fileName;
-  setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+    progName = fileName;
+    setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
 
-  pi->setProg(progName);
+    pi->setProg(progName);
 
-  mb->reset();
+    mb->reset();
 
-  for (int i(0); i < recentProgs.size(); ++i)
-    if ((i >= 5) || (recentProgs[i] == progName)) {
-      recentProgs.removeAt(i);
+    for (int i(0); i < recentProgs.size(); ++i)
+        if ((i >= 5) || (recentProgs[i] == progName)) {
+            recentProgs.removeAt(i);
+        }
+    recentProgs.push_front(progName);
+
+    writeSettings();
+    readSettings();
+
+    // Now, open all readable files in the current programme.
+    QStringList list = env->listViewableFiles(progName);
+    for (int i(0); i < list.count(); ++i) {
+        mb->message("Opening " + list[i]);
+        open(list[i]);
     }
-  recentProgs.push_front(progName);
-
-  writeSettings();
-  readSettings();
-
-  // Now, open all readable files in the current programme.
-  QStringList list = env->listViewableFiles(progName);
-  for (int i(0); i < list.count(); ++i) {
-    mb->message("Opening " + list[i]);
-    open(list[i]);
-  }
-  mb->message("-----------------------");
-  mb->message(QString("Total: %1 files loaded").arg(list.count()));
+    mb->message("-----------------------");
+    mb->message(QString("Total: %1 files loaded").arg(list.count()));
 }
 
 void DevEditor::openRecentProg() {
-  QAction *action = qobject_cast<QAction *>(sender());
-  if (action)
-    openProgFunc(action->data().toString());
+    QAction *action = qobject_cast<QAction *>(sender());
+    if (action)
+        openProgFunc(action->data().toString());
 }
 
 void DevEditor::compileCurrentFile() {
-  env->compileFile(curFile);
+    save();
+
+    disableCLActs();
+
+    messageDock->show();
+
+    connect(env, SIGNAL(compileSuccesful()), this, SLOT(compileSuccesful()));
+    env->compileFile(curFile);
 }
 
-bool DevEditor::compileAll() {
-  mb->reset();
+void DevEditor::compileNext() {
+    if (compileQueue.isEmpty())
+        return;
 
-  QFileInfo info = QFileInfo(progName);
-  QDir::setCurrent(info.absolutePath());
+    if (compileQueue.count() == 1) {
+        disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
+        connect(env, SIGNAL(compileSuccesful()), this, SLOT(compileSuccesful()));
+    }
 
-  mb->message("Will try to compile every source file in " + env->lastDir(progName));
-
-  QStringList sources = pi->sourceFiles();
-  for (int i(0); i < sources.count(); ++i)
-    if (!env->compileFile(sources[i], true))
-      return false;
-
-  mb->good(QObject::tr("*** Succes ***"));
-  return true;
+    QString src = compileQueue[0];
+    compileQueue.pop_front();
+    env->compileFile(src, true);
 }
 
-bool DevEditor::linkObjects() {
-  return env->linkObjects(progName);
+void DevEditor::compileFailed() {
+    compileQueue.clear();
+
+    mb->error(tr("*** Failed ***"));
+    disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileSuccesful()));
+    disconnect(env, SIGNAL(compileFailed()), this, SLOT(compileFailed()));
+    disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
+
+    enableCLActs();
+}
+
+void DevEditor::compileSuccesful() {
+    compileQueue.clear();
+
+    mb->good(tr("*** Succes ***"));
+    disconnect(env, SIGNAL(compileFailed()), this, SLOT(compileFailed()));
+    disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileSuccesful()));
+
+    emit compilationSuccesful();
+
+    enableCLActs();
+}
+
+void DevEditor::compileAll() {
+    saveAll();
+
+    disableCLActs();
+
+    mb->reset();
+    messageDock->show();
+
+    QFileInfo info = QFileInfo(progName);
+    QDir::setCurrent(info.absolutePath());
+
+    mb->message("------ Compiling ------");
+
+    compileQueue = pi->sourceFiles();
+
+    connect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
+    connect(env, SIGNAL(compileFailed()), this, SLOT(compileFailed()));
+    compileNext();
+}
+
+void DevEditor::linkSuccesful() {
+    disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
+    disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
+
+    mb->good(tr("*** Success ***"));
+
+    enableCLActs();
+}
+
+void DevEditor::linkFailed() {
+    disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
+    disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
+
+    mb->error(tr("*** Problems ***"));
+
+    enableCLActs();
+}
+
+void DevEditor::linkObjects(bool dontClear) {
+    disableCLActs();
+
+    messageDock->show();
+
+    connect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
+    connect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
+    env->linkObjects(progName, dontClear);
 }
 
 void DevEditor::runProg() {
-  mb->reset();
+    messageDock->show();
+    mb->reset();
 
-  mb->message(tr("Attempting to run %1").arg(pi->exe()));
+    mb->message(tr("Attempting to run %1").arg(pi->exe()));
 
-  if (env->run(pi->exe()))
-    mb->good(QObject::tr("*** Succes ***"));
-  else
-    mb->error(QObject::tr("*** Problems ***"));
+    connect(env, SIGNAL(runDone()), this, SLOT(runDone()));
+    env->run(pi->exe());
+}
+
+void DevEditor::runDone() {
+    disconnect(env, SIGNAL(runDone()), this, SLOT(runDone()));
+
+    mb->good(tr("*** Done ***"));
 }
 
 void DevEditor::buildProg() {
-  if (compileAll()) // Link only if compile is succesful.
-    linkObjects();
+    compileAll();
+
+    connect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueBuild()));
+}
+
+void DevEditor::continueBuild() {
+    disconnect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueBuild()));
+
+    linkObjects(true);
+}
+
+void DevEditor::disableCLActs() {
+    compileFileAct->setDisabled(true);
+    buildAct->setDisabled(true);
+    compileAct->setDisabled(true);
+    linkAct->setDisabled(true);
+}
+
+void DevEditor::enableCLActs() {
+    compileFileAct->setEnabled(true);
+    buildAct->setEnabled(true);
+    compileAct->setEnabled(true);
+    linkAct->setEnabled(true);
+}
+
+void DevEditor::canCompileChanged(bool newState) {
+    if (newState)
+        enableCLActs();
+    else
+        disableCLActs();
 }
 
 void DevEditor::createActions() {
-  compileFileAct = new QAction(tr("Compile"), this);
-  compileFileAct->setStatusTip(tr("Compiles the current file"));
-  connect(compileFileAct, SIGNAL(triggered()), this, SLOT(compileCurrentFile()));
+    compileFileAct = new QAction(tr("Compile"), this);
+    compileFileAct->setStatusTip(tr("Compiles the current file"));
+    connect(compileFileAct, SIGNAL(triggered()), this, SLOT(compileCurrentFile()));
 
-  newAct = new QAction(QIcon(":/filenew.xpm"), tr("&New"), this);
-  newAct->setShortcut(tr("Ctrl+N"));
-  newAct->setStatusTip(tr("Create a new file"));
-  connect(newAct, SIGNAL(triggered()), this, SLOT(newFile()));
+    newAct = new QAction(QIcon(":/filenew.xpm"), tr("&New"), this);
+    newAct->setShortcut(tr("Ctrl+N"));
+    newAct->setStatusTip(tr("Create a new file"));
+    connect(newAct, SIGNAL(triggered()), this, SLOT(newFile()));
 
-  openAct = new QAction(QIcon(":/fileopen.xpm"), tr("&Open..."), this);
-  openAct->setShortcut(tr("Ctrl+O"));
-  openAct->setStatusTip(tr("Open an existing file"));
-  connect(openAct, SIGNAL(triggered()), this, SLOT(open()));
+    openAct = new QAction(QIcon(":/fileopen.xpm"), tr("&Open..."), this);
+    openAct->setShortcut(tr("Ctrl+O"));
+    openAct->setStatusTip(tr("Open an existing file"));
+    connect(openAct, SIGNAL(triggered()), this, SLOT(open()));
 
-  saveAct = new QAction(QIcon(":/filesave.xpm"), tr("&Save"), this);
-  saveAct->setShortcut(tr("Ctrl+S"));
-  saveAct->setStatusTip(tr("Save the document to disk"));
-  connect(saveAct, SIGNAL(triggered()), this, SLOT(save()));
+    saveAct = new QAction(QIcon(":/filesave.xpm"), tr("&Save"), this);
+    saveAct->setShortcut(tr("Ctrl+S"));
+    saveAct->setStatusTip(tr("Save the document to disk"));
+    connect(saveAct, SIGNAL(triggered()), this, SLOT(save()));
 
-  saveAsAct = new QAction(tr("Save &As..."), this);
-  saveAsAct->setStatusTip(tr("Save the document under a new name"));
-  connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAs()));
+    saveAsAct = new QAction(tr("Save &As..."), this);
+    saveAsAct->setStatusTip(tr("Save the document under a new name"));
+    connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAs()));
 
-  exitAct = new QAction(tr("E&xit"), this);
-  exitAct->setShortcut(tr("Ctrl+Q"));
-  exitAct->setStatusTip(tr("Exit the application"));
-  connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+    exitAct = new QAction(tr("E&xit"), this);
+    exitAct->setShortcut(tr("Ctrl+Q"));
+    exitAct->setStatusTip(tr("Exit the application"));
+    connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
-  cutAct = new QAction(QIcon(":/editcut.xpm"), tr("Cu&t"), this);
-  cutAct->setShortcut(tr("Ctrl+X"));
-  cutAct->setStatusTip(tr("Cut the current selection's contents to the "
-    "clipboard"));
-  connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+    cutAct = new QAction(QIcon(":/editcut.xpm"), tr("Cu&t"), this);
+    cutAct->setShortcut(tr("Ctrl+X"));
+    cutAct->setStatusTip(tr("Cut the current selection's contents to the "
+                            "clipboard"));
+    connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
 
-  copyAct = new QAction(QIcon(":/editcopy.xpm"), tr("&Copy"), this);
-  copyAct->setShortcut(tr("Ctrl+C"));
-  copyAct->setStatusTip(tr("Copy the current selection's contents to the "
-    "clipboard"));
-  connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+    copyAct = new QAction(QIcon(":/editcopy.xpm"), tr("&Copy"), this);
+    copyAct->setShortcut(tr("Ctrl+C"));
+    copyAct->setStatusTip(tr("Copy the current selection's contents to the "
+                             "clipboard"));
+    connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
 
-  pasteAct = new QAction(QIcon(":/editpaste.xpm"), tr("&Paste"), this);
-  pasteAct->setShortcut(tr("Ctrl+V"));
-  pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
-    "selection"));
-  connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+    pasteAct = new QAction(QIcon(":/editpaste.xpm"), tr("&Paste"), this);
+    pasteAct->setShortcut(tr("Ctrl+V"));
+    pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
+                              "selection"));
+    connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
 
-  highlightAct = new QAction(tr("Syntax &Highlighting"), this);
-  highlightAct->setStatusTip(tr("Toggle syntax highlighting"));
-  highlightAct->setCheckable(true);
-  highlightAct->setChecked(true);
-  connect(highlightAct, SIGNAL(triggered()), this, SLOT(toggleSyntaxHighlighting()));
+    highlightAct = new QAction(tr("Syntax &Highlighting"), this);
+    highlightAct->setStatusTip(tr("Toggle syntax highlighting"));
+    highlightAct->setCheckable(true);
+    highlightAct->setChecked(true);
+    connect(highlightAct, SIGNAL(triggered()), this, SLOT(toggleSyntaxHighlighting()));
 
-  textBiggerAct = new QAction(QIcon(":viewmag+.xpm"), tr("Text bigger"), this);
-  textBiggerAct->setStatusTip(tr("Makes the text in the current tab bigger"));
-  connect(textBiggerAct, SIGNAL(triggered()), this, SLOT(textBigger()));
+    textBiggerAct = new QAction(QIcon(":viewmag+.xpm"), tr("Text bigger"), this);
+    textBiggerAct->setStatusTip(tr("Makes the text in the current tab bigger"));
+    connect(textBiggerAct, SIGNAL(triggered()), this, SLOT(textBigger()));
 
-  textSmallerAct = new QAction(QIcon(":viewmag-.xpm"), tr("Text smaller"), this);
-  textSmallerAct->setStatusTip(tr("Makes the text in the current tab smaller"));
-  connect(textSmallerAct, SIGNAL(triggered()), this, SLOT(textSmaller()));
+    textSmallerAct = new QAction(QIcon(":viewmag-.xpm"), tr("Text smaller"), this);
+    textSmallerAct->setStatusTip(tr("Makes the text in the current tab smaller"));
+    connect(textSmallerAct, SIGNAL(triggered()), this, SLOT(textSmaller()));
 
-  fontFamilyAct[0] = new QAction(tr("Monospace"), this);
-  fontFamilyAct[0]->setStatusTip(tr("Sets the font in the current tab to Monospace"));
-  fontFamilyAct[0]->setCheckable(true);
-  fontFamilyAct[0]->setChecked(true);
-  fontFamilyAct[0]->setData("Monospace");
-  connect(fontFamilyAct[0], SIGNAL(triggered()), this, SLOT(setFontFamily()));
+    fontFamilyAct[0] = new QAction(tr("Monospace"), this);
+    fontFamilyAct[0]->setStatusTip(tr("Sets the font in the current tab to Monospace"));
+    fontFamilyAct[0]->setCheckable(true);
+    fontFamilyAct[0]->setChecked(true);
+    fontFamilyAct[0]->setData("Monospace");
+    connect(fontFamilyAct[0], SIGNAL(triggered()), this, SLOT(setFontFamily()));
 
-  fontFamilyAct[1] = new QAction(tr("Courier New"), this);
-  fontFamilyAct[1]->setStatusTip(tr("Sets the font in the current tab to Courier New"));
-  fontFamilyAct[1]->setCheckable(true);
-  fontFamilyAct[1]->setData("Courier New");
-  connect(fontFamilyAct[1], SIGNAL(triggered()), this, SLOT(setFontFamily()));
+    fontFamilyAct[1] = new QAction(tr("Courier New"), this);
+    fontFamilyAct[1]->setStatusTip(tr("Sets the font in the current tab to Courier New"));
+    fontFamilyAct[1]->setCheckable(true);
+    fontFamilyAct[1]->setData("Courier New");
+    connect(fontFamilyAct[1], SIGNAL(triggered()), this, SLOT(setFontFamily()));
 
-  fontFamilyAct[2] = new QAction(tr("Andale Mono"), this);
-  fontFamilyAct[2]->setStatusTip(tr("Sets the font in the current tab to Andale Mono"));
-  fontFamilyAct[2]->setCheckable(true);
-  fontFamilyAct[2]->setData("Andale Mono");
-  connect(fontFamilyAct[2], SIGNAL(triggered()), this, SLOT(setFontFamily()));
+    fontFamilyAct[2] = new QAction(tr("Andale Mono"), this);
+    fontFamilyAct[2]->setStatusTip(tr("Sets the font in the current tab to Andale Mono"));
+    fontFamilyAct[2]->setCheckable(true);
+    fontFamilyAct[2]->setData("Andale Mono");
+    connect(fontFamilyAct[2], SIGNAL(triggered()), this, SLOT(setFontFamily()));
 
-  lineNumbersAct = new QAction(tr("Line numbers"), this);
-  lineNumbersAct->setStatusTip(tr("Shows/Hides line numbers."));
-  lineNumbersAct->setCheckable(true);
-  lineNumbersAct->setChecked(true);
-  connect(lineNumbersAct, SIGNAL(triggered()), this, SLOT(toggleLineNumbering()));
+    lineNumbersAct = new QAction(tr("Line numbers"), this);
+    lineNumbersAct->setStatusTip(tr("Shows/Hides line numbers."));
+    lineNumbersAct->setCheckable(true);
+    lineNumbersAct->setChecked(true);
+    connect(lineNumbersAct, SIGNAL(triggered()), this, SLOT(toggleLineNumbering()));
 
-  runAct = new QAction(QIcon(":/run.xpm"), tr("Run"), this);
-  runAct->setShortcut(tr("F9"));
-  runAct->setStatusTip(tr("Runs the programme"));
-  connect(runAct, SIGNAL(triggered()), this, SLOT(runProg()));
+    runAct = new QAction(QIcon(":/run.xpm"), tr("Run"), this);
+    runAct->setShortcut(tr("F9"));
+    runAct->setStatusTip(tr("Runs the programme"));
+    connect(runAct, SIGNAL(triggered()), this, SLOT(runProg()));
 
-  buildAct = new QAction(QIcon(":/configure.xpm"), tr("Build"), this);
-  buildAct->setShortcut(tr("F8"));
-  buildAct->setStatusTip(tr("Builds the programme"));
-  connect(buildAct, SIGNAL(triggered()), this, SLOT(buildProg()));
+    buildAct = new QAction(QIcon(":/configure.xpm"), tr("Build"), this);
+    buildAct->setShortcut(tr("F8"));
+    buildAct->setStatusTip(tr("Builds the programme"));
+    connect(buildAct, SIGNAL(triggered()), this, SLOT(buildProg()));
 
-  compileAct = new QAction(tr("Compile"), this);
-  compileAct->setStatusTip(tr("Compiles all source files"));
-  connect(compileAct, SIGNAL(triggered()), this, SLOT(compileAll()));
+    compileAct = new QAction(tr("Compile"), this);
+    compileAct->setStatusTip(tr("Compiles all source files"));
+    connect(compileAct, SIGNAL(triggered()), this, SLOT(compileAll()));
 
-  linkAct = new QAction(tr("Link"), this);
-  linkAct->setStatusTip(tr("Links the objects into an executable"));
-  connect(linkAct, SIGNAL(triggered()), this, SLOT(linkObjects()));
+    linkAct = new QAction(tr("Link"), this);
+    linkAct->setStatusTip(tr("Links the objects into an executable"));
+    connect(linkAct, SIGNAL(triggered()), this, SLOT(linkObjects()));
 
-  newProgAct = new QAction(QIcon(":window_new.xpm"), tr("New"), this);
-  newProgAct->setStatusTip(tr("Creates a new programme"));
-  connect(newProgAct, SIGNAL(triggered()), this, SLOT(newProg()));
+    newProgAct = new QAction(QIcon(":window_new.xpm"), tr("New"), this);
+    newProgAct->setStatusTip(tr("Creates a new programme"));
+    connect(newProgAct, SIGNAL(triggered()), this, SLOT(newProg()));
 
-  openProgAct = new QAction(QIcon(":fileopen.xpm"), tr("Open"), this);
-  openProgAct->setStatusTip(tr("Opens an existing programme"));
-  connect(openProgAct, SIGNAL(triggered()), this, SLOT(openProg()));
+    openProgAct = new QAction(QIcon(":fileopen.xpm"), tr("Open"), this);
+    openProgAct->setStatusTip(tr("Opens an existing programme"));
+    connect(openProgAct, SIGNAL(triggered()), this, SLOT(openProg()));
 
-  aboutAct = new QAction(tr("&About"), this);
-  aboutAct->setStatusTip(tr("Show the application's About box"));
-  connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
+    aboutAct = new QAction(tr("&About"), this);
+    aboutAct->setStatusTip(tr("Show the application's About box"));
+    connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
 
-  aboutQtAct = new QAction(tr("About &Qt"), this);
-  aboutQtAct->setStatusTip(tr("Show the Qt library's About box"));
-  connect(aboutQtAct, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
+    aboutQtAct = new QAction(tr("About &Qt"), this);
+    aboutQtAct->setStatusTip(tr("Show the Qt library's About box"));
+    connect(aboutQtAct, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
 
-  tabCloseAction = new QAction(QIcon(":tab_remove.xpm"), tr("Close tab"), this);
-  tabCloseAction->setStatusTip(tr("Close the current tab"));
-  // This is added to a toolbutton in init().
+    tabCloseAction = new QAction(QIcon(":tab_remove.xpm"), tr("Close tab"), this);
+    tabCloseAction->setStatusTip(tr("Close the current tab"));
+    // This is added to a toolbutton in init().
 
-  cutAct->setEnabled(false);
-  copyAct->setEnabled(false);
-  connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), cutAct, SLOT(setEnabled(bool)));
-  connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
+    cutAct->setEnabled(false);
+    copyAct->setEnabled(false);
+    connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), cutAct, SLOT(setEnabled(bool)));
+    connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
 }
 
 void DevEditor::createMenus() {
-  deMenu = menuBar()->addMenu(tr("&DevEditor"));
-  deMenu->addAction(env->getConfigureAct());
-  deMenu->addSeparator();
-  deMenu->addAction(aboutAct);
-  deMenu->addAction(aboutQtAct);
-  deMenu->addSeparator();
-  deMenu->addAction(exitAct);
+    deMenu = menuBar()->addMenu(tr("&DevEditor"));
+    deMenu->addAction(env->getConfigureAct());
+    deMenu->addSeparator();
+    deMenu->addAction(aboutAct);
+    deMenu->addAction(aboutQtAct);
+    deMenu->addSeparator();
+    deMenu->addAction(exitAct);
 
-  editMenu = menuBar()->addMenu(tr("&Edit"));
-  editMenu->addAction(cutAct);
-  editMenu->addAction(copyAct);
-  editMenu->addAction(pasteAct);
+    editMenu = menuBar()->addMenu(tr("&Edit"));
+    editMenu->addAction(cutAct);
+    editMenu->addAction(copyAct);
+    editMenu->addAction(pasteAct);
 
-  viewMenu = menuBar()->addMenu(tr("&View"));
-  viewMenu->addAction(highlightAct);
-  QMenu *textMenu = viewMenu->addMenu(tr("&Text"));
-  textMenu->addAction(textBiggerAct);
-  textMenu->addAction(textSmallerAct);
-  textMenu->addSeparator();
-  for (int i(0); i < 3; ++i)
-    textMenu->addAction(fontFamilyAct[i]);
-  viewMenu->addSeparator();
-  viewMenu->addAction(lineNumbersAct);
+    viewMenu = menuBar()->addMenu(tr("&View"));
+    viewMenu->addAction(highlightAct);
+    QMenu *textMenu = viewMenu->addMenu(tr("&Text"));
+    textMenu->addAction(textBiggerAct);
+    textMenu->addAction(textSmallerAct);
+    textMenu->addSeparator();
+    for (int i(0); i < 3; ++i)
+        textMenu->addAction(fontFamilyAct[i]);
+    viewMenu->addSeparator();
+    viewMenu->addAction(lineNumbersAct);
 
-  progMenu = menuBar()->addMenu(tr("&Programme"));
-  progMenu->addAction(runAct);
-  progMenu->addAction(buildAct);
-  progMenu->addSeparator();
-  progMenu->addAction(compileAct);
-  progMenu->addAction(linkAct);
-  progMenu->addSeparator();
-  progMenu->addAction(newProgAct);
-  progMenu->addAction(openProgAct);
-  openRecentProgMenu = progMenu->addMenu(tr("Open recent"));
+    progMenu = menuBar()->addMenu(tr("&Programme"));
+    progMenu->addAction(runAct);
+    progMenu->addAction(buildAct);
+    progMenu->addSeparator();
+    progMenu->addAction(compileAct);
+    progMenu->addAction(linkAct);
+    progMenu->addSeparator();
+    progMenu->addAction(newProgAct);
+    progMenu->addAction(openProgAct);
+    openRecentProgMenu = progMenu->addMenu(tr("Open recent"));
 
-  fileMenu = menuBar()->addMenu(tr("&File"));
-  fileMenu->addAction(newAct);
-  fileMenu->addAction(openAct);
-  fileMenu->addAction(saveAct);
-  fileMenu->addAction(saveAsAct);
-  fileMenu->addSeparator();
-  fileMenu->addAction(compileFileAct);
+    fileMenu = menuBar()->addMenu(tr("&File"));
+    fileMenu->addAction(newAct);
+    fileMenu->addAction(openAct);
+    fileMenu->addAction(saveAct);
+    fileMenu->addAction(saveAsAct);
+    fileMenu->addSeparator();
+    fileMenu->addAction(compileFileAct);
 }
 
 void DevEditor::createToolBars() {
-  fileToolBar = addToolBar(tr("File"));
-  fileToolBar->addAction(newAct);
-  fileToolBar->addAction(openAct);
-  fileToolBar->addAction(saveAct);
+    QToolBar *toolBar;
 
-  editToolBar = addToolBar(tr("Edit"));
-  editToolBar->addAction(cutAct);
-  editToolBar->addAction(copyAct);
-  editToolBar->addAction(pasteAct);
+    toolBar = addToolBar(tr("File"));
+    toolBar->addAction(newAct);
+    toolBar->addAction(openAct);
+    toolBar->addAction(saveAct);
 
-  viewToolBar = addToolBar(tr("View"));
-  viewToolBar->addAction(textSmallerAct);
-  viewToolBar->addAction(textBiggerAct);
+    toolBar = addToolBar(tr("Edit"));
+    toolBar->addAction(cutAct);
+    toolBar->addAction(copyAct);
+    toolBar->addAction(pasteAct);
 
-  otherToolBar = addToolBar(tr("Other"));
+    toolBar = addToolBar(tr("View"));
+    toolBar->addAction(textSmallerAct);
+    toolBar->addAction(textBiggerAct);
+
+    toolBar = addToolBar(tr("Programme"));
+    toolBar->addAction(runAct);
+    toolBar->addAction(buildAct);
+
+    otherToolBar = addToolBar(tr("Other"));
 }
 
 void DevEditor::createStatusBar() {
-  QFrame *aux = new QFrame;
-  aux->setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
-  aux->setLineWidth(2);
+    QFrame *aux = new QFrame;
+    aux->setFrameStyle(QFrame::StyledPanel);
+    aux->setLineWidth(2);
 
-  lineLabel = new QLabel("Line: 0", aux);
-  columnLabel = new QLabel("Col: 0", aux);
+    lineLabel = new QLabel("Line: 0", aux);
+    columnLabel = new QLabel("Col: 0", aux);
 
-  QHBoxLayout *clbox = new QHBoxLayout;
-  clbox->setSpacing(3);
-  clbox->setMargin(0);
-  clbox->setContentsMargins(2, 0, 2, 0);
-  clbox->addWidget(lineLabel);
-  clbox->addWidget(columnLabel);
+    QHBoxLayout *clbox = new QHBoxLayout;
+    clbox->setSpacing(3);
+    clbox->setMargin(0);
+    clbox->setContentsMargins(2, 0, 2, 0);
+    clbox->addWidget(lineLabel);
+    clbox->addWidget(columnLabel);
 
-  aux->setLayout(clbox);
+    aux->setLayout(clbox);
 
 //   QHBoxLayout *box = new QHBoxLayout;
 //   box->setSpacing(3);
@@ -664,136 +811,122 @@ void DevEditor::createStatusBar() {
 //   setStatusBar(0);
 //   setStatusBar(esb);
 
-  statusBar()->addPermanentWidget(aux);
+    statusBar()->addPermanentWidget(aux);
 
-  statusBar()->showMessage(tr("Ready"));
+    statusBar()->showMessage(tr("Ready"));
 }
 
 void DevEditor::readSettings() {
-  QSettings settings("ScvTech", "DevEditor");
-  QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
-  QSize size = settings.value("size", QSize(400, 400)).toSize();
-  textSize = settings.value("pointSize", 12).toInt();
-  textFont = settings.value("fontFamily", "Monospace").toString();
-  progName = settings.value("progName", "NoProject").toString();
-  progPath = settings.value("progPath", ".").toString();
-  recentProgs = settings.value("recentProgs").toStringList();
+    QSettings settings("ScvTech", "DevEditor");
+    QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
+    QSize size = settings.value("size", QSize(400, 400)).toSize();
+    textSize = settings.value("pointSize", 12).toInt();
+    textFont = settings.value("fontFamily", "Monospace").toString();
+    progName = settings.value("progName", "NoProject").toString();
+    progPath = settings.value("progPath", ".").toString();
+    recentProgs = settings.value("recentProgs").toStringList();
 
-  if (!env->isDir(progPath))
-    progPath = env->home();
+    if (!env->isDir(progPath))
+        progPath = env->home();
 
-  if ((progName != "NoProject") && (!env->isDir(progName)))
-    progName = "NoProject";
+    if ((progName != "NoProject") && (!env->isDir(progName)))
+        progName = "NoProject";
 
-  openRecentProgMenu->clear();
-  for (int i(0); i < recentProgs.count(); ++i)
-    if (env->isDir(recentProgs[i])) {
-      QAction *act = new QAction(env->lastDir(recentProgs[i]), this);
-      act->setData(recentProgs[i]);
-      openRecentProgMenu->addAction(act);
-      connect(act, SIGNAL(triggered()), this, SLOT(openRecentProg()));
-    }
+    openRecentProgMenu->clear();
+    for (int i(0); i < recentProgs.count(); ++i)
+        if (env->isDir(recentProgs[i])) {
+            QAction *act = new QAction(env->lastDir(recentProgs[i]), this);
+            act->setData(recentProgs[i]);
+            openRecentProgMenu->addAction(act);
+            connect(act, SIGNAL(triggered()), this, SLOT(openRecentProg()));
+        }
 
-  resize(size);
-  move(pos);
+    resize(size);
+    move(pos);
 }
 
 void DevEditor::writeSettings() {
-  QSettings settings("ScvTech", "DevEditor");
-  settings.setValue("pos", pos());
-  settings.setValue("size", size());
-  settings.setValue("pointSize", textSize);
-  settings.setValue("fontFamily", textFont);
-  settings.setValue("progName", progName);
-  settings.setValue("progPath", progPath);
-  settings.setValue("recentProgs", recentProgs);
+    QSettings settings("ScvTech", "DevEditor");
+    settings.setValue("pos", pos());
+    settings.setValue("size", size());
+    settings.setValue("pointSize", textSize);
+    settings.setValue("fontFamily", textFont);
+    settings.setValue("progName", progName);
+    settings.setValue("progPath", progPath);
+    settings.setValue("recentProgs", recentProgs);
 }
 
 bool DevEditor::maybeSave(bool canCancel) {
-  return true; //This just save everything.
-  if (textEdit->getDocument()->isModified()) {
-    int ret;
-    if (canCancel)
-      ret = QMessageBox::warning(this, tr("DevEditor"),
-        tr("The document %1 has been modified.\n"
-        "Do you want to save your changes?").arg(shownName),
-        QMessageBox::Yes | QMessageBox::Default,
-        QMessageBox::No,
-        QMessageBox::Cancel | QMessageBox::Escape);
-    else
-      ret = QMessageBox::warning(this, tr("DevEditor"),
-        tr("The document %1 has been modified.\n"
-        "Do you want to save your changes?").arg(shownName),
-        QMessageBox::Yes | QMessageBox::Default,
-        QMessageBox::No);
-    if (ret == QMessageBox::Yes)
-      return save();
-    else if (ret == QMessageBox::Cancel)
-      return false;
-  }
-  return true;
+    return true; //This just save everything.
+    if (textEdit->getDocument()->isModified()) {
+        int ret;
+        if (canCancel)
+            ret = QMessageBox::warning(this, tr("DevEditor"),
+                                       tr("The document %1 has been modified.\n"
+                                          "Do you want to save your changes?").arg(shownName),
+                                       QMessageBox::Yes | QMessageBox::Default,
+                                       QMessageBox::No,
+                                       QMessageBox::Cancel | QMessageBox::Escape);
+        else
+            ret = QMessageBox::warning(this, tr("DevEditor"),
+                                       tr("The document %1 has been modified.\n"
+                                          "Do you want to save your changes?").arg(shownName),
+                                       QMessageBox::Yes | QMessageBox::Default,
+                                       QMessageBox::No);
+        if (ret == QMessageBox::Yes)
+            return save();
+        else if (ret == QMessageBox::Cancel)
+            return false;
+    }
+    return true;
 }
 
 void DevEditor::loadFile(const QString &fileName) {
-  QFile file(fileName);
-  if (!file.open(QFile::ReadOnly | QFile::Text)) {
-    QMessageBox::warning(this, tr("DevEditor"),
-      tr("Cannot read file %1:\n%2.")
-      .arg(fileName)
-      .arg(file.errorString()));
-    return;
-  }
+    QApplication::setOverrideCursor(Qt::WaitCursor);
 
-  QTextStream in(&file);
-  QApplication::setOverrideCursor(Qt::WaitCursor);
-  textEdit->getTextEdit()->setPlainText(in.readAll());
-  QApplication::restoreOverrideCursor();
+    ((TextEditWidget*)tabWidget->currentWidget())->setCurFile(fileName);
+    ((TextEditWidget*)tabWidget->currentWidget())->load();
 
-  setCurrentFile(fileName);
-  tabWidget->setTabText(tabWidget->currentIndex(), shownName);
-  statusBar()->showMessage(tr("File loaded"), 2000);
+    QApplication::restoreOverrideCursor();
+
+    setCurrentFile(fileName);
+    tabWidget->setTabText(tabWidget->currentIndex(), shownName);
+    statusBar()->showMessage(tr("File loaded"), 2000);
 }
 
 bool DevEditor::saveFile(const QString &fileName) {
-  QFile file(fileName);
-  if (!file.open(QFile::WriteOnly | QFile::Text)) {
-    QMessageBox::warning(this, tr("DevEditor"),
-      tr("Cannot write file %1:\n%2.")
-      .arg(fileName)
-      .arg(file.errorString()));
-    return false;
-  }
+    QApplication::setOverrideCursor(Qt::WaitCursor);
 
-  QTextStream out(&file);
-  QApplication::setOverrideCursor(Qt::WaitCursor);
-  out << textEdit->getTextEdit()->toPlainText();
-  QApplication::restoreOverrideCursor();
+    ((TextEditWidget*)tabWidget->currentWidget())->setCurFile(fileName);
+    bool ret = ((TextEditWidget*)tabWidget->currentWidget())->save();
 
-  setCurrentFile(fileName);
-  statusBar()->showMessage(tr("File saved"), 2000);
-  return true;
+    QApplication::restoreOverrideCursor();
+
+    if (!ret)
+        return false;
+
+    setCurrentFile(fileName);
+    statusBar()->showMessage(tr("File saved"), 2000);
+
+    return true;
 }
 
 void DevEditor::setCurrentFile(const QString &fileName) {
-  curFile = fileName;
-  textEdit->getDocument()->setModified(false);
-  setWindowModified(false);
+    curFile = fileName;
+    textEdit->getDocument()->setModified(false);
+    setWindowModified(false);
 
-  if (curFile.isEmpty())
-    shownName = "untitled.txt";
-  else
-    shownName = env->strippedName(curFile);
+    if (curFile.isEmpty())
+        shownName = "untitled.txt";
+    else
+        shownName = env->strippedName(curFile);
 
-  setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
-  if (isWindowModified())
-    tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
-  else
-    tabWidget->setTabText(tabWidget->currentIndex(), shownName);
+    setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+    if (isWindowModified())
+        tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
+    else
+        tabWidget->setTabText(tabWidget->currentIndex(), shownName);
 
-  textEdit->setCurFile(curFile);
-  textEdit->setShownName(shownName);
-}
-
-DevEditor::~DevEditor() {
-  delete pi;
+    textEdit->setCurFile(curFile);
+    textEdit->setShownName(shownName);
 }

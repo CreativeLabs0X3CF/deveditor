@@ -35,20 +35,20 @@ class QTextDocument;
   @author Alexandru Scvortov <scvalex@gmail.com>
 */
 class NumberBar : public QWidget {
-  Q_OBJECT
+    Q_OBJECT
 
 public:
-  NumberBar(QWidget *parent);
-  ~NumberBar();
+    NumberBar(QWidget *parent);
+    ~NumberBar();
 
-  void setTextEdit(QTextEdit *_edit);
-  void paintEvent(QPaintEvent *event);
+    void setTextEdit(QTextEdit *_edit);
+    void paintEvent(QPaintEvent *event);
 
 protected:
-  bool event(QEvent *event);
+    bool event(QEvent *event);
 
-  QTextEdit *edit;
-  QRect currentRect;
+    QTextEdit *edit;
+    QRect currentRect;
 };
 
 /**
@@ -56,96 +56,112 @@ protected:
   @author Alexandru Scvortov <scvalex@gmail.com>
 */
 class TextEditWidget : public QFrame {
-  Q_OBJECT
+    Q_OBJECT
 
 public:
-  TextEditWidget(QWidget *parent = 0);
-  ~TextEditWidget();
+    TextEditWidget(QWidget *parent = 0);
+    ~TextEditWidget();
 
-  QTextEdit* getTextEdit() const;
+    QTextEdit* getTextEdit() const;
 
-  QString getCurFile() const;
-  QString getShownName() const;
+    QString getCurFile() const;
+    QString getShownName() const;
 
-  void setCurFile(QString _curFile);
-  void setShownName(QString _shownName);
+    void setCurFile(QString _curFile);
+    void setShownName(QString _shownName);
 
-  Highlighter* getHighlighter() const;
+    Highlighter* getHighlighter() const;
 
-  bool getHighlighting() const;
+    bool getHighlighting() const;
 
-  /*!
-    @return The font used for the text.
-    @note No changes to font are displayed until updateFont() is called.
-    @sa updateFont()
-  */
-  QFont* getFont();
+    /*!
+      @return The font used for the text.
+      @note No changes to font are displayed until updateFont() is called.
+      @sa updateFont()
+    */
+    QFont* getFont();
 
-  //! @internal Used to get tooltip events from the view for the hover signal.
-  bool eventFilter(QObject *obj, QEvent *event);
+    //! @internal Used to get tooltip events from the view for the hover signal.
+    bool eventFilter(QObject *obj, QEvent *event);
 
-  //! Returns the QTextEdit's document.
-  QTextDocument* getDocument();
+    //! Returns the QTextEdit's document.
+    QTextDocument* getDocument();
+
+    /*!
+      Saves the current document to the specifed file.
+      @return True if save succesful, false otherwise.
+    */
+    bool save();
+
+    //! Loads the current document.
+    void load();
 
 public slots:
-  //! Toggles syntax highlighting.
-  void toggleHighlighting();
+    //! Toggles syntax highlighting.
+    void toggleHighlighting();
 
-  /*!
-    Displays any changest to font.
-    @sa getFont()
-  */
-  void updateFont();
+    /*!
+      Displays any changest to font.
+      @sa getFont()
+    */
+    void updateFont();
 
-  //! Sets the line numbers column visibility to true or false.
-  void setLineNumbering(bool _state);
+    //! Sets the line numbers column visibility to true or false.
+    void setLineNumbering(bool _state);
+
+    /*!
+      Attempts to move to line lineNo.
+      @return True, if move was succesful.
+      @return False, otherwise.
+    */
+    bool moveToLine(int lineNo);
 
 protected slots:
-  //! @internal Used to update the highlight on the current line.
-  void cursorChanged();
+    //! @internal Used to update the highlight on the current line.
+    void cursorChanged();
 
 signals:
-  /*!
-    Emmited when the Highlighter is activated or deactivated.
-    @param state The current state of the Highlighter.
-  */
-  void highlighting(bool state);
+    /*!
+      Emmited when the Highlighter is activated or deactivated.
+      @param state The current state of the Highlighter.
+    */
+    void highlighting(bool state);
 
-  /*!
-    Emitted when the mouse is hovered over the text edit component.
-    @param word The word under the mouse pointer.
-  */
-  void mouseHover(const QString &word);
+    /*!
+      Emitted when the mouse is hovered over the text edit component.
+      @param word The word under the mouse pointer.
+    */
+    void mouseHover(const QString &word);
 
-  /*!
-    Emmited when the mouse is hovered over the text edit component.
-    @param pos The position of the mouse pointer.
-    @param word The word under the mouse pointer.
-  */
-  void mouseHover(const QPoint &pos, const QString &word);
+    /*!
+      Emmited when the mouse is hovered over the text edit component.
+      @param pos The position of the mouse pointer.
+      @param word The word under the mouse pointer.
+    */
+    void mouseHover(const QPoint &pos, const QString &word);
 
-  /*!
-    @param line The current line.
-    @param column The current character in the current line.
-  */
-  void cursorPositionChanged(int line, int column);
+    /*!
+      @param line The current line.
+      @param column The current character in the current line.
+    */
+    void cursorPositionChanged(int line, int column);
 
 protected:
-  QTextEdit *view;
-  NumberBar *numbers;
-  QHBoxLayout *box;
-  int currentLine;
+    QTextEdit *view;
+    NumberBar *numbers;
+    QHBoxLayout *box;
+    int currentLine;
 
-  //! Previous cursor.
-  QTextCursor highlight;
+    //! Previous cursor.
+    QTextCursor highlight;
 
-  QString curFile;
-  QString shownName;
+    QString curFile;
+    QString shownName;
 
-  Highlighter *highlighter;
-  bool highlighterOn;
+    Highlighter *highlighter;
+    bool highlighterOn;
 
-  QFont font;
+    QFont font;
 };
 
 #endif

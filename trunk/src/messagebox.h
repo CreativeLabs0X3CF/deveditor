@@ -28,28 +28,38 @@
   @author Alexandru Scvortov <scvalex@gmail.com>
 */
 class MessageBox : public QTextBrowser {
+    Q_OBJECT
+
 public:
-  MessageBox(QWidget *parent = 0);
+    MessageBox(QWidget *parent = 0);
 
-  ~MessageBox();
+    ~MessageBox();
 
-  //! Resets the MessageBox.
-  void reset();
+    //! Resets the MessageBox.
+    void reset();
 
-  //! Shows a normal message.
-  void message(const QString &text);
+    //! Shows a normal message.
+    void message(const QString &text);
 
-  //! Shows a warning.
-  void warn(const QString &text);
+    //! Shows a warning.
+    void warn(const QString &text);
 
-  //! Shows an error.
-  void error(const QString &text);
+    //! Shows an error.
+    void error(const QString &text);
 
-  //! Shows something good.
-  void good(const QString &text);
+    //! Shows something good.
+    void good(const QString &text);
+
+signals:
+    void switchToFile(const QString &fileName);
+    void moveToLine(int);
+
+protected slots:
+    //! Recives open link requests.
+    void moveTo(const QUrl &url);
 
 protected:
-  QString msgs;
+    QString msgs;
 };
 
 #endif

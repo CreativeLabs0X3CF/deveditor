@@ -25,531 +25,612 @@
 #include "messagebox.h"
 
 ProgInfo::ProgInfo(const QString &_progName) : progName(_progName) {
-  if (!QDir(progName).exists())
-    qWarning("No such programme: %s", progName.toStdString().c_str());
+    if (!QDir(progName).exists())
+        qWarning("No such programme: %s", progName.toStdString().c_str());
 }
 
-ProgInfo::~ProgInfo() {
-}
+ProgInfo::~ProgInfo() {}
 
 QStringList ProgInfo::sourceFiles() {
-  QFileInfoList aux = QDir(progName).entryInfoList();
+    QFileInfoList aux = QDir(progName).entryInfoList();
 
-  QStringList list;
-  for (int i(0); i < aux.count(); ++i)
-    if ((aux[i].suffix() == "cpp") || (aux[i].suffix() == "c"))
-      list.push_back(progName + '/' + aux[i].fileName());
+    QStringList list;
+    for (int i(0); i < aux.count(); ++i)
+        if ((aux[i].suffix() == "cpp") || (aux[i].suffix() == "c"))
+            list.push_back(progName + '/' + aux[i].fileName());
 
-  return list;
+    return list;
 }
 
 QStringList ProgInfo::objectFiles() {
-  QFileInfoList aux = QDir(progName).entryInfoList();
+    QFileInfoList aux = QDir(progName).entryInfoList();
 
-  QStringList list;
-  for (int i(0); i < aux.count(); ++i)
-    if (aux[i].suffix() == "o")
-      list.push_back(progName + '/' + aux[i].fileName());
+    QStringList list;
+    for (int i(0); i < aux.count(); ++i)
+        if (aux[i].suffix() == "o")
+            list.push_back(progName + '/' + aux[i].fileName());
 
-  return list;
+    return list;
 }
 
 void ProgInfo::setProg(const QString &_progName) {
-  progName = _progName;
+    progName = _progName;
 }
 
 EnvironmentConfigurationWidget::EnvironmentConfigurationWidget(Environment *_env, QWidget *parent) : QDialog(parent), env(_env) {
-  setModal(true);
+    setModal(true);
 
-  setupUI();
+    setupUI();
 
-  setFixedSize(sizeHint());
+    setFixedSize(sizeHint());
 }
 
-EnvironmentConfigurationWidget::~EnvironmentConfigurationWidget() {
-}
+EnvironmentConfigurationWidget::~EnvironmentConfigurationWidget() {}
 
 void EnvironmentConfigurationWidget::setupUI() {
-  QVBoxLayout *mainLayout = new QVBoxLayout(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(this);
 
-  QAction *action;
-  QHBoxLayout *curLayout;
-  QLabel *nameLabel;
-  QToolButton *browseButton;
+    QAction *action;
+    QHBoxLayout *curLayout;
+    QLabel *nameLabel;
+    QToolButton *browseButton;
 
-  // The C compiler line.
-  curLayout = new QHBoxLayout;
+    nameLabel = new QLabel(tr("Paths to the compiler executables"), this);
+    mainLayout->addWidget(nameLabel);
 
-  nameLabel = new QLabel(tr("C Compiler"), this);
-  nameLabel->setFixedWidth(fontMetrics().width(QString("C++ Compiler")));
-  curLayout->addWidget(nameLabel);
+    // Initial values.
+    cc = env->getCc();
+    cpp = env->getCpp();
 
-  ccEdit = new QLineEdit(env->getCc(), this);
-  //TODO See if a QCompleter is a good idea.
-  curLayout->addWidget(ccEdit);
+    // The C compiler line.
+    curLayout = new QHBoxLayout;
 
-  browseButton = new QToolButton(this);
-  action = new QAction(QIcon(":/package_system.xpm"), "", this);
-  browseButton->setDefaultAction(action);
-  connect(browseButton, SIGNAL(pressed()), this, SLOT(getCcPath()));
-  curLayout->addWidget(browseButton);
+    nameLabel = new QLabel(tr("C Compiler"), this);
+    nameLabel->setFixedWidth(fontMetrics().width(QString("C++ Compiler")));
+    curLayout->addWidget(nameLabel);
 
-  ccStatusLabel = new QLabel(this);
-  if (env->exists(env->getCc()) && env->isExe(env->getCc()))
-    ccStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(ccEdit->height() - 4));
-  else
-    ccStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(ccEdit->height() - 4));
-  curLayout->addWidget(ccStatusLabel);
+    ccEdit = new QLineEdit(cc, this);
+    ccEdit->setFixedWidth(fontMetrics().width(QString("0")) * 32);
+    connect(ccEdit, SIGNAL(textChanged(const QString &)), this, SIGNAL(ccChanged(const QString &)));
+    connect(ccEdit, SIGNAL(textChanged(const QString &)), this, SLOT(test()));
+    //TODO See if a QCompleter is a good idea.
+    curLayout->addWidget(ccEdit);
 
-  mainLayout->addLayout(curLayout);
+    browseButton = new QToolButton(this);
+    action = new QAction(QIcon(":/package_system.xpm"), "", this);
+    browseButton->setDefaultAction(action);
+    connect(browseButton, SIGNAL(clicked()), this, SLOT(getCcPath()));
+    curLayout->addWidget(browseButton);
 
-  // The CPP compiler line.
-  curLayout = new QHBoxLayout;
+    ccStatusLabel = new QLabel(this);
+    curLayout->addWidget(ccStatusLabel);
 
-  nameLabel = new QLabel(tr("C++ Compiler"), this);
-  nameLabel->setFixedWidth(fontMetrics().width(QString("C++ Compiler")));
-  curLayout->addWidget(nameLabel);
+    mainLayout->addLayout(curLayout);
 
-  cppEdit = new QLineEdit(env->getCpp(), this);
-  curLayout->addWidget(cppEdit);
+    // The CPP compiler line.
+    curLayout = new QHBoxLayout;
 
-  browseButton = new QToolButton(this);
-  action = new QAction(QIcon(":/package_system.xpm"), "", this);
-  browseButton->setDefaultAction(action);
-  connect(browseButton, SIGNAL(pressed()), this, SLOT(getCppPath()));
-  curLayout->addWidget(browseButton);
+    nameLabel = new QLabel(tr("C++ Compiler"), this);
+    nameLabel->setFixedWidth(fontMetrics().width(QString("C++ Compiler")));
+    curLayout->addWidget(nameLabel);
 
-  cppStatusLabel = new QLabel(this);
-  if (env->exists(env->getCpp()) && env->isExe(env->getCpp()))
-    cppStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 4));
-  else
-    cppStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 4));
-  curLayout->addWidget(cppStatusLabel);
+    cppEdit = new QLineEdit(cpp, this);
+    cppEdit->setFixedWidth(fontMetrics().width(QString("0")) * 32);
+    connect(cppEdit, SIGNAL(textChanged(const QString &)), this, SLOT(test()));
+    connect(cppEdit, SIGNAL(textChanged(const QString &)), this, SIGNAL(cppChanged(const QString &)));
+    curLayout->addWidget(cppEdit);
 
-  mainLayout->addLayout(curLayout);
+    browseButton = new QToolButton(this);
+    action = new QAction(QIcon(":/package_system.xpm"), "", this);
+    browseButton->setDefaultAction(action);
+    connect(browseButton, SIGNAL(clicked()), this, SLOT(getCppPath()));
+    curLayout->addWidget(browseButton);
 
-  // The bottom line.
-  QHBoxLayout *bottomSection = new QHBoxLayout;
+    cppStatusLabel = new QLabel(this);
+    curLayout->addWidget(cppStatusLabel);
 
-  testButton = new QPushButton(tr("Test"), this);
-  bottomSection->addWidget(testButton);
-  connect(testButton, SIGNAL(released()), this, SLOT(test()));
-  bottomSection->addStretch();
-  doneButton = new QPushButton(tr("Done"), this);
-  connect(doneButton, SIGNAL(released()), this, SLOT(hide()));
-  bottomSection->addWidget(doneButton);
+    mainLayout->addLayout(curLayout);
 
-  mainLayout->addLayout(bottomSection);
+    // The bottom line.
+    QHBoxLayout *bottomSection = new QHBoxLayout;
 
-  setLayout(mainLayout);
+    testButton = new QPushButton(tr("Test"), this);
+    bottomSection->addWidget(testButton);
+    connect(testButton, SIGNAL(clicked()), this, SLOT(test()));
+    bottomSection->addStretch();
+    doneButton = new QPushButton(tr("Done"), this);
+    connect(doneButton, SIGNAL(clicked()), this, SLOT(hide()));
+    bottomSection->addWidget(doneButton);
+
+    mainLayout->addLayout(bottomSection);
+
+    setLayout(mainLayout);
+
+    test();
 }
 
 void EnvironmentConfigurationWidget::getCcPath() {
-  QString path = QFileDialog::getOpenFileName(this, "DevEditor", QFileInfo(env->getCc()).absolutePath());
+    QString path = QFileDialog::getOpenFileName(this, "DevEditor", QFileInfo(env->getCc()).absolutePath());
 
-  if (!path.isEmpty()) {
-    ccEdit->setText(path);
+    if (!path.isEmpty()) {
+        cc = path;
+        ccEdit->setText(path);
 
-    if (env->isExe(path))
-      ccStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 4));
-    else
-      ccStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 4));
+        if (env->isExe(path))
+            ccStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 2));
+        else
+            ccStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 2));
 
-    env->setCc(path);
-  }
+        emit ccChanged(path);
+    }
 }
 
 void EnvironmentConfigurationWidget::getCppPath() {
     QString path = QFileDialog::getOpenFileName(this, "DevEditor", QFileInfo(env->getCpp()).absolutePath());
 
-  if (!path.isEmpty()) {
-    cppEdit->setText(path);
+    if (!path.isEmpty()) {
+        cpp = path;
+        cppEdit->setText(path);
 
-    if (env->isExe(path))
-      cppStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 4));
-    else
-      cppStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 4));
-
-    env->setCpp(path);
-  }
+        if (env->isExe(path))
+            cppStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 2));
+        else
+            cppStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 2));
+    }
 }
 
 void EnvironmentConfigurationWidget::test() {
-  if (env->exists(env->getCc()) && env->isExe(env->getCc()))
-    ccStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(ccEdit->height() - 4));
-  else
-    ccStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(ccEdit->height() - 4));
+    cc = ccEdit->text();
+    cpp = cppEdit->text();
 
-  if (env->exists(env->getCpp()) && env->isExe(env->getCpp()))
-    cppStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 4));
-  else
-    cppStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 4));
+    if (env->exists(cc) && env->isExe(cc))
+        ccStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(ccEdit->height() - 2));
+    else
+        ccStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(ccEdit->height() - 2));
+
+    if (env->exists(cpp) && env->isExe(cpp))
+        cppStatusLabel->setPixmap(QPixmap(":/apply.xpm").scaledToHeight(cppEdit->height() - 2));
+    else
+        cppStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 2));
 }
 
 QString ProgInfo::exe() {
-  QStringList dirs = QFileInfo(progName).absolutePath().split('/');
-  QString binName = progName + dirs[dirs.count() - 1];
+    QStringList dirs = QFileInfo(progName).absolutePath().split('/');
+    QString binName = progName + dirs[dirs.count() - 1];
 
 #ifdef Q_WS_WIN
-  return binName + ".exe";
+    return binName + ".exe";
 #endif
 
 #ifdef Q_WS_X11
-  return binName;
+    return binName;
 #endif
 
-  return "";
+    return "";
 }
 
 Environment::Environment(QWidget *parent) : QObject(parent), mb(0) {
-  badExts << "o" << "exe" << "log" << "xpm"; //TODO Add all extensions of images, etc.
+    badExts << "o" << "exe" << "log" << "xpm"; //TODO Add all extensions of images, etc.
 
-  isWindows = false;
-  isUnix = false;
+    isWindows = false;
+    isUnix = false;
 
 #ifdef Q_WS_WIN
-  isWindows = true;
-  qWarning("This is Windows");
+    isWindows = true;
+    qWarning("This is Windows");
 #endif
 
 #ifdef Q_WS_X11
-  isUnix = true;
-  qWarning("This is *nix");
+    isUnix = true;
+    qWarning("This is *nix");
 #endif
 
-  if (isWindows) {
-    defaultCc = "C:\\MinGW\\bin\\gcc.exe";
-    defaultCpp = "C:\\MinGW\\bin\\g++.exe";
-  } else if (isUnix) {
-    defaultCc = "/usr/bin/gcc";
-    defaultCpp = "/usr/bin/g++";
-  }
+    if (isWindows) {
+        defaultCc = "C:\\MinGW\\bin\\gcc.exe";
+        defaultCpp = "C:\\MinGW\\bin\\g++.exe";
+    } else if (isUnix) {
+        defaultCc = "/usr/bin/gcc";
+        defaultCpp = "/usr/bin/g++";
+    }
 
-  readSettings();
+    readSettings();
 
-  ecw = new EnvironmentConfigurationWidget(this, parent);
+    checkCompiler();
 
-  configureAct = new QAction(QIcon(":/configure.xpm"), tr("Configure"), 0);
-  configureAct->setStatusTip(tr("Configure the environment"));
-  connect(configureAct, SIGNAL(triggered()), ecw, SLOT(show()));
+    ecw = new EnvironmentConfigurationWidget(this, parent);
+    connect(ecw, SIGNAL(ccChanged(const QString &)), this, SLOT(setCc(const QString &)));
+    connect(ecw, SIGNAL(cppChanged(const QString &)), this, SLOT(setCpp(const QString &)));
+
+
+    configureAct = new QAction(QIcon(":/configure.xpm"), tr("Configure compiler"), 0);
+    configureAct->setStatusTip(tr("Configure the environment"));
+    connect(configureAct, SIGNAL(triggered()), ecw, SLOT(show()));
+
+    bProc = new QProcess(this);
 }
 
 Environment::~Environment() {
-  delete configureAct;
+    delete configureAct;
 }
 
 QString Environment::strippedName(const QString &fullFileName) {
-  return QFileInfo(fullFileName).fileName();
+    return QFileInfo(fullFileName).fileName();
 }
 
 QString Environment::lastDir(const QString &fullFileName) {
-  if (!exists(fullFileName)) {
-    QString path = fullFileName;
-    if (path.data()[path.length() - 1] == '/')
-      path.chop(1);
-    return path;
-  }
+    if (!exists(fullFileName)) {
+        QString path = fullFileName;
+        if (path.data()[path.length() - 1] == '/')
+            path.chop(1);
+        return path;
+    }
 
-  QStringList dirs = QFileInfo(fullFileName).absolutePath().split('/');
-  return dirs[dirs.count() - 1];
+    QStringList dirs = QFileInfo(fullFileName).absolutePath().split('/');
+    return dirs[dirs.count() - 1];
 }
 
 bool Environment::mkdir(const QString &fullFileName) {
-  return QDir().mkdir(fullFileName);
+    return QDir().mkdir(fullFileName);
 }
 
 bool Environment::exists(const QString &fullFileName) {
-  if (QDir(fullFileName).exists() || QFile(fullFileName).exists())
-    return true;
-  return false;
+    if (QDir(fullFileName).exists() || QFile(fullFileName).exists())
+        return true;
+    return false;
 }
 
 bool Environment::isDir(const QString &path) {
-  if (QDir(path).exists())
-    return true;
-  return false;
+    if (QDir(path).exists())
+        return true;
+    return false;
 }
 
 bool Environment::isExe(const QString &path) {
-  if (QFileInfo(path).isExecutable())
-    return true;
-  return false;
+    if (QFileInfo(path).isExecutable())
+        return true;
+    return false;
 }
 
 bool Environment::mkfile(const QString &dir, const QString &name, bool useTemplate) {
-  if (!isDir(dir))
-    return false;
+    if (!isDir(dir))
+        return false;
 
-  QString path = dir + '/' + name;
-  if (exists(path))
-    return false;
+    QString path = dir + '/' + name;
+    if (exists(path))
+        return false;
 
-  if (useTemplate) {
-    QFileInfo info(name);
+    if (useTemplate) {
+        QFileInfo info(name);
 
-    QString templateName = ":/" + info.fileName() + ".template";
+        QString templateName = ":/" + info.fileName() + ".template";
 
-    if (!exists(templateName)) {
-      templateName = ":/" + info.completeSuffix() + ".template";
-      if (!exists(templateName))
-        goto create_empty_file;
+        if (!exists(templateName)) {
+            templateName = ":/" + info.completeSuffix() + ".template";
+            if (!exists(templateName))
+                goto create_empty_file;
+        }
+
+        QFile ifile(templateName);
+        ifile.open(QFile::ReadOnly | QFile::Text);
+
+        QFile ofile(path);
+        ofile.open(QFile::WriteOnly | QFile::Text);
+
+        QTextStream fi(&ifile);
+        QTextStream fo(&ofile);
+
+        fo << fi.readAll();
+
+        return true;
     }
 
-    QFile ifile(templateName);
-    ifile.open(QFile::ReadOnly | QFile::Text);
-
-    QFile ofile(path);
-    ofile.open(QFile::WriteOnly | QFile::Text);
-
-    QTextStream fi(&ifile);
-    QTextStream fo(&ofile);
-
-    fo << fi.readAll();
-
-    return true;
-  }
-
-  create_empty_file:
+create_empty_file:
     QFile file(path);
     if (!file.open(QFile::WriteOnly | QFile::Text))
-      return false;
+        return false;
 
     return true;
 }
 
 QString Environment::home() const {
-  return QDir::toNativeSeparators(QDir::homePath());
+    return QDir::toNativeSeparators(QDir::homePath());
 }
 
 QStringList Environment::listViewableFiles(const QString &dir) {
-  if (!isDir(dir))
-    return QStringList();
+    if (!isDir(dir))
+        return QStringList();
 
-  QFileInfoList aux = QDir(dir).entryInfoList();
+    QFileInfoList aux = QDir(dir).entryInfoList();
 
-  QStringList list;
-  for (int i(0); i < aux.count(); ++i)
-    if (aux[i].isReadable() && aux[i].isFile() && !aux[i].isHidden() && !aux[i].isExecutable()) {
-      // Good, I can read it, it's visible and it's not a directory. But does it have an unacceptable extension?
-      bool bad = false;
-      QString suf = aux[i].suffix();
-      for (int j(0); j < badExts.count(); ++j)
-        if (badExts[j] == suf) {
-          bad = true;
-          break;
+    QStringList list;
+    for (int i(0); i < aux.count(); ++i)
+        if (aux[i].isReadable() && aux[i].isFile() && !aux[i].isHidden() && !aux[i].isExecutable()) {
+            // Good, I can read it, it's visible and it's not a directory. But does it have an unacceptable extension?
+            bool bad = false;
+            QString suf = aux[i].suffix();
+            for (int j(0); j < badExts.count(); ++j)
+                if (badExts[j] == suf) {
+                    bad = true;
+                    break;
+                }
+            if (suf.data()[suf.length() - 1] == '~')
+                bad = true;
+
+            if (!bad)
+                list.push_back(unitePath(QStringList(dir) << aux[i].fileName()));
         }
-      if (suf.data()[suf.length() - 1] == '~')
-        bad = true;
 
-      if (!bad)
-        list.push_back(unitePath(QStringList(dir) << aux[i].fileName()));
-    }
-
-  return list;
+    return list;
 }
 
 QString Environment::unitePath(const QStringList &list) const {
-  QString result;
-  for (int i(0); i < list.count(); ++i) {
-    result += list[i];
-    if ((i != list.count() - 1) && (result.data()[result.length() - 1] != '/'))
-      result += '/';
-  }
-  return result;
+    QString result;
+    for (int i(0); i < list.count(); ++i) {
+        result += list[i];
+        if ((i != list.count() - 1) && (result.data()[result.length() - 1] != '/'))
+            result += '/';
+    }
+    return result;
 }
 
 bool Environment::isReadableFile(const QString &path) {
-  QFileInfo info(path);
+    QFileInfo info(path);
 
-  if (info.exists() && info.isFile() && info.isReadable())
-    return true;
+    if (info.exists() && info.isFile() && info.isReadable())
+        return true;
 
-  return false;
+    return false;
 }
 
-bool Environment::compileFile(const QString &path, bool partOfBulkJob) {
-  if (!exists(path))
-    return false;
+void Environment::compileFile(const QString &path, bool partOfBulkJob) {
+    if (!canCompile)  {
+        emit compileFailed();
+        return;
+    }
 
-  if (!partOfBulkJob)
+    if (!partOfBulkJob) {
+        connect(this, SIGNAL(compileFailed()), this, SLOT(compilationFailed()));
+    } else {
+        disconnect(this, SIGNAL(compileFailed()), this, SLOT(compilationFailed()));
+    }
+
+    if (!exists(path)) {
+        emit compileFailed();
+        return;
+    }
+
+    if (!partOfBulkJob)
+        if (mb)
+            mb->reset();
+
+    QFileInfo info = QFileInfo(path);
+    QDir::setCurrent(info.absolutePath());
+
+    disconnect(bProc, 0, 0, 0);
+    connect(bProc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(compileProcessExited(int, QProcess::ExitStatus)));
+
+    QString command;
+    QString shortCommand;
+
+    if (info.suffix() == "cpp") {
+        command = cpp; // + " -Wall -c " + " -o " + info.baseName() + ".o " + info.fileName();
+        shortCommand = QFileInfo(cpp).fileName();
+    } else if (info.suffix() == "c") {
+        command = cc; // + " -Wall -c " + " -o " + info.baseName() + ".o " + info.fileName();
+        shortCommand = QFileInfo(cc).fileName();
+    } else {
+        if (mb)
+            mb->warn(tr("Don't know how to compile ") + path);
+
+        emit compileFailed();
+        return;
+    }
+
+    QStringList arguments;
+    arguments << otherOpt
+        << compileOpt
+        << outputOpt << info.baseName() + ".o"
+        << info.fileName();
+
     if (mb)
-      mb->reset();
+        mb->message(tr("compiling %1 (%2)").arg(info.fileName()).arg(shortCommand));
 
-  QFileInfo info = QFileInfo(path);
-  QDir::setCurrent(info.absolutePath());
+    bProc->start(command, arguments);
+}
 
-  QString command;
-  QString shortCommand;
+void Environment::compileProcessExited(int exitCode, QProcess::ExitStatus exitStatus) {
+    if (mb) {
+        QStringList msgs = QString(bProc->readAllStandardError()).split("\n");
+        for (int i(0); i < msgs.count(); ++i) {
+            mb->error(msgs[i]);
+        }
 
-  if (info.suffix() == "cpp") {
-    command = cpp + " -c " + " -o " + info.baseName() + ".o " + info.fileName();
-    shortCommand = QFileInfo(cpp).fileName();
-  } else if (info.suffix() == "c") {
-    command = cc + " -c " + " -o " + info.baseName() + ".o " + info.fileName();
-    shortCommand = QFileInfo(cc).fileName();
-  } else {
+        msgs = QString(bProc->readAllStandardOutput()).split("\n");
+        for (int i(0); i < msgs.count(); ++i) {
+            mb->message(msgs[i]);
+        }
+    }
+
+    if ((exitStatus == QProcess::CrashExit) || (exitCode != 0))
+        emit compileFailed();
+
+    emit compileSuccesful();
+}
+
+void Environment::compilationFailed() {
     if (mb)
-      mb->warn(tr("Don't know how to compile ") + path);
-
-    return false;
-  }
-
-  if (isUnix)
-    command += " >& compile.log";
-  else if (isWindows)
-    command += " 2> compile.log";
-
-  if (mb)
-    mb->message(tr("compiling %1 (%2)").arg(info.fileName()).arg(shortCommand));
-
-  int ret = system(command.toStdString().c_str());
-
-  QFile fclog("compile.log");
-  fclog.open(QFile::ReadOnly | QFile::Text);
-  QTextStream clog(&fclog);
-
-  while (!clog.atEnd()) {
-    QString line = clog.readLine();
-
-    mb->error(line);
-  }
-
-  fclog.remove();
-
-  if (mb) {
-    if (ret == 0) {
-      if (!partOfBulkJob)
-        mb->good(tr("*** Succes ***"));
-    }else
-      mb->error(tr("*** Exited with status: %1 ***").arg(ret));
-  }
-
-  return (ret == 0);
+        mb->error(tr("*** Failed ***"));
 }
 
 void Environment::setMessageBox(MessageBox *_mb) {
-  mb = _mb;
+    mb = _mb;
 }
 
-bool Environment::linkObjects(const QString &path) {
-  if (!exists(path))
-    return false;
-
-  if (mb)
-    mb->reset();
-
-  ProgInfo pi(path);
-  QFileInfo info = QFileInfo(path);
-  QDir::setCurrent(info.absolutePath());
-
-  mb->message("Will try to link every object file in " + lastDir(path));
-
-  QString objects = "\"" + pi.objectFiles().join("\" \"") + "\""; // Just in case someone uses spaces in somewhere in the path.
-
-//   if (mb)
-//     mb->message("Object files: " + objects);
-
-  if (objects.isEmpty())
-    return false;
-
-  bool isCppProject = false;
-  QFileInfoList aux = QDir(path).entryInfoList();
-  for (int i(0); i < aux.count(); ++i)
-    if (aux[i].suffix() == "cpp") {
-      isCppProject = true;
-      break;
+void Environment::linkObjects(const QString &path, bool dontClear) {
+    if (!canCompile) {
+        emit linkFailed();
+        return;
     }
 
-  QString shortCommand = cc;
-  if (isCppProject)
-    shortCommand = cpp;
+    if (!exists(path)) {
+        emit linkFailed();
+        return;
+    }
 
-  QString exeName = lastDir(path);
-  if (isWindows)
-    exeName += ".exe";
+    if (!dontClear)
+        if (mb)
+            mb->reset();
 
-  QString command = shortCommand + " -o \"" + exeName + "\" " + objects;
+    ProgInfo pi(path);
+    QFileInfo info = QFileInfo(path);
+    QDir::setCurrent(info.absolutePath());
 
-  if (isUnix)
-    command += " >& link.log";
-  else if (isWindows)
-    command += " 2> link.log";
+    disconnect(bProc, 0, 0, 0);
+    connect(bProc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SLOT(linkProcessExited(int, QProcess::ExitStatus)));
 
-//   if (mb)
-//     mb->message(command);
+    mb->message("------- Linking -------");
 
-  if (mb)
-    mb->message(tr("linking ") + exeName + " (" + QFileInfo(shortCommand).fileName() + ")");
+    QStringList objects = pi.objectFiles();
+    if (objects.isEmpty()) {
+        emit linkFailed();
+        return;
+    }
 
-  int ret = system(command.toStdString().c_str());
+    bool isCppProject = false;
+    QFileInfoList aux = QDir(path).entryInfoList();
+    for (int i(0); i < aux.count(); ++i)
+        if (aux[i].suffix() == "cpp") {
+            isCppProject = true;
+            break;
+        }
 
-  QFile fclog("link.log");
-  fclog.open(QFile::ReadOnly | QFile::Text);
-  QTextStream clog(&fclog);
+    QString command = cc;
+    if (isCppProject)
+        command = cpp;
 
-  while (!clog.atEnd()) {
-    QString line = clog.readLine();
+    QString exeName = lastDir(path);
+    if (isWindows)
+        exeName += ".exe";
 
-    mb->error(line);
-  }
+    QStringList arguments;
+    arguments << outputOpt << exeName
+        << objects;
 
-  fclog.remove();
+    bProc->start(command, arguments);
 
-  if (mb)
-    if (ret == 0)
-      mb->good(tr("*** Succes ***"));
-    else
-      mb->error(tr("*** Problems linking objects ***"));
-
-  return (ret == 0);
+    if (mb)
+        mb->message(tr("linking ") + exeName + " (" + QFileInfo(command).fileName() + ")");
 }
 
-bool Environment::run(const QString &path) {
-  if (isUnix) {
-    return (system(QString("xterm -e \"%1 && echo \\\"Press return to continue\\\" && read\"").arg(path).toStdString().c_str()) == 0);
-  } else if (isWindows) {
-    return (system(QString("\"%1\" && pause").arg(path).toStdString().c_str()) == 0);
-  }
+void Environment::linkProcessExited(int exitCode, QProcess::ExitStatus exitStatus) {
+    if (mb) {
+        QStringList msgs = QString(bProc->readAllStandardError()).split("\n");
+        for (int i(0); i < msgs.count(); ++i) {
+            mb->error(msgs[i]);
+        }
 
-  return false;
+        msgs = QString(bProc->readAllStandardOutput()).split("\n");
+        for (int i(0); i < msgs.count(); ++i) {
+            mb->message(msgs[i]);
+        }
+    }
+
+    if ((exitStatus == QProcess::CrashExit) || (exitCode != 0))
+        emit linkFailed();
+
+    emit linkSuccesful();
+}
+
+void Environment::run(const QString &path) {
+    QString command;
+    QStringList arguments;
+    if (isUnix) {
+        command = "konsole";
+        arguments << "--noclose" << "-e";
+    } else if (isWindows) {
+    }
+
+    arguments << path;
+
+    static QProcess *proc = new QProcess(this);
+    disconnect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone()));
+    connect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone()));
+    proc->start(command, arguments);
+
+//     if (isUnix) {
+//         return (system(QString("xterm -e \"%1 && echo \\\"Press return to continue\\\" && read\"").arg(path).toStdString().c_str()) == 0);
+//     } else if (isWindows) {
+//         return (system(QString("\"%1\" && pause").arg(path).toStdString().c_str()) == 0);
+//     }
 }
 
 QAction* Environment::getConfigureAct() {
-  return configureAct;
+    return configureAct;
 }
 
 QString Environment::getCc() const {
-  return cc;
+    return cc;
 }
 
 QString Environment::getCpp() const {
-  return cpp;
+    return cpp;
 }
 
 void Environment::setCc(const QString &path) {
-  cc = path;
-  writeSettings();
+    cc = path;
+    writeSettings();
+
+    checkCompiler();
 }
 
 void Environment::setCpp(const QString &path) {
-  cpp = path;
-  writeSettings();
+    cpp = path;
+    writeSettings();
+
+    checkCompiler();
 }
 
 void Environment::writeSettings() {
-  QSettings settings("ScvTech", "DevEditor Environment");
-  settings.setValue("cc", cc);
-  settings.setValue("cpp", cpp);
+    QSettings settings("ScvTech", "DevEditor Environment");
+    settings.setValue("cc", cc);
+    settings.setValue("cpp", cpp);
+    settings.setValue("compileOpt", compileOpt);
+    settings.setValue("outputOpt", outputOpt);
+    settings.setValue("linkOpt", linkOpt);
+    settings.setValue("otherOpt", otherOpt);
 }
 
 void Environment::readSettings() {
-  QSettings settings("ScvTech", "DevEditor Environment");
-  cc = settings.value("cc", "").toString();
-  cpp = settings.value("cpp", "").toString();
+    QSettings settings("ScvTech", "DevEditor Environment");
+    cc = settings.value("cc", "").toString();
+    cpp = settings.value("cpp", "").toString();
 
-  if (cc.isEmpty())
-    cc = defaultCc;
+    if (cc.isEmpty())
+        cc = defaultCc;
 
-  if (cpp.isEmpty())
-    cpp = defaultCpp;
+    if (cpp.isEmpty())
+        cpp = defaultCpp;
+
+    compileOpt = settings.value("compileOpt", "-c").toString();
+    outputOpt = settings.value("outputOpt", "-o").toString();
+    linkOpt = settings.value("linkOpt", "").toString();
+    otherOpt = settings.value("otherOpt", "-Wall").toString();
+}
+
+bool Environment::checkCompiler() {
+    bool aux = canCompile;
+
+    if (exists(cc) && isExe(cc) && exists(cpp) && isExe(cpp))
+        canCompile = true;
+    else
+        canCompile = false;
+
+    if (aux != canCompile)
+        emit canCompileChanged(canCompile);
+
+    return canCompile;
+}
+
+bool Environment::getCanCompile() const {
+    return canCompile;
 }
