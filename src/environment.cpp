@@ -75,8 +75,8 @@ void EnvironmentConfigurationWidget::setupUI() {
     QLabel *nameLabel;
     QToolButton *browseButton;
 
-    nameLabel = new QLabel(tr("Paths to the compiler executables"), this);
-    mainLayout->addWidget(nameLabel);
+    QGroupBox *box = new QGroupBox(tr("Paths"), this);
+    QVBoxLayout *boxLayout = new QVBoxLayout;
 
     // Initial values.
     cc = env->getCc();
@@ -105,7 +105,7 @@ void EnvironmentConfigurationWidget::setupUI() {
     ccStatusLabel = new QLabel(this);
     curLayout->addWidget(ccStatusLabel);
 
-    mainLayout->addLayout(curLayout);
+    boxLayout->addLayout(curLayout);
 
     // The CPP compiler line.
     curLayout = new QHBoxLayout;
@@ -129,7 +129,44 @@ void EnvironmentConfigurationWidget::setupUI() {
     cppStatusLabel = new QLabel(this);
     curLayout->addWidget(cppStatusLabel);
 
-    mainLayout->addLayout(curLayout);
+    boxLayout->addLayout(curLayout);
+
+    box->setLayout(boxLayout);
+
+    mainLayout->addWidget(box);
+
+    // The options line.
+    box = new QGroupBox(tr("Options"), this);
+
+    curLayout = new QHBoxLayout;
+
+    nameLabel = new QLabel(tr("Compile"), this);
+    curLayout->addWidget(nameLabel);
+
+    compileOptEdit = new QLineEdit(env->getCompileOpt(), this);
+    compileOptEdit->setFixedWidth(fontMetrics().width(QString("0")) * 4);
+    connect(compileOptEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateOpts()));
+    curLayout->addWidget(compileOptEdit);
+
+    nameLabel = new QLabel(tr("Link"), this);
+    curLayout->addWidget(nameLabel);
+
+    linkOptEdit = new QLineEdit(env->getLinkOpt(), this);
+    linkOptEdit->setFixedWidth(fontMetrics().width(QString("0")) * 4);
+    connect(linkOptEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateOpts()));
+    curLayout->addWidget(linkOptEdit);
+
+    nameLabel = new QLabel(tr("Other"), this);
+    curLayout->addWidget(nameLabel);
+
+    otherOptEdit = new QLineEdit(env->getOtherOpt().join(" "), this);
+    otherOptEdit->setFixedWidth(fontMetrics().width(QString("0")) * 23);
+    connect(otherOptEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateOpts()));
+    curLayout->addWidget(otherOptEdit);
+
+    box->setLayout(curLayout);
+
+    mainLayout->addWidget(box);
 
     // The bottom line.
     QHBoxLayout *bottomSection = new QHBoxLayout;
@@ -194,6 +231,10 @@ void EnvironmentConfigurationWidget::test() {
         cppStatusLabel->setPixmap(QPixmap(":/history_clear.xpm").scaledToHeight(cppEdit->height() - 2));
 }
 
+void EnvironmentConfigurationWidget::updateOpts() {
+    emit optsChanged(compileOptEdit->text(), linkOptEdit->text(), otherOptEdit->text().split(" "));
+}
+
 QString ProgInfo::exe() {
     QStringList dirs = QFileInfo(progName).absolutePath().split('/');
     QString binName = progName + dirs[dirs.count() - 1];
@@ -240,7 +281,7 @@ Environment::Environment(QWidget *parent) : QObject(parent), mb(0) {
     ecw = new EnvironmentConfigurationWidget(this, parent);
     connect(ecw, SIGNAL(ccChanged(const QString &)), this, SLOT(setCc(const QString &)));
     connect(ecw, SIGNAL(cppChanged(const QString &)), this, SLOT(setCpp(const QString &)));
-
+    connect(ecw, SIGNAL(optsChanged(const QString &, const QString &, const QStringList &)), this, SLOT(setOpts(const QString&, const QString&, const QStringList&)));
 
     configureAct = new QAction(QIcon(":/configure.xpm"), tr("Configure compiler"), 0);
     configureAct->setStatusTip(tr("Configure the environment"));
@@ -581,6 +622,8 @@ void Environment::setCc(const QString &path) {
     writeSettings();
 
     checkCompiler();
+
+    writeSettings();
 }
 
 void Environment::setCpp(const QString &path) {
@@ -588,6 +631,8 @@ void Environment::setCpp(const QString &path) {
     writeSettings();
 
     checkCompiler();
+
+    writeSettings();
 }
 
 void Environment::writeSettings() {
@@ -614,7 +659,7 @@ void Environment::readSettings() {
     compileOpt = settings.value("compileOpt", "-c").toString();
     outputOpt = settings.value("outputOpt", "-o").toString();
     linkOpt = settings.value("linkOpt", "").toString();
-    otherOpt = settings.value("otherOpt", "-Wall").toString();
+    otherOpt = settings.value("otherOpt", "-Wall").toStringList();
 }
 
 bool Environment::checkCompiler() {
@@ -633,4 +678,29 @@ bool Environment::checkCompiler() {
 
 bool Environment::getCanCompile() const {
     return canCompile;
+}
+
+QString Environment::getCompileOpt() const {
+    return compileOpt;
+}
+
+QString Environment::getLinkOpt() const {
+    return linkOpt;
+}
+
+QStringList Environment::getOtherOpt() const {
+    return otherOpt;
+}
+
+void Environment::setOpts(const QString &co, const QString &lo, const QStringList &oo) {
+    compileOpt = co;
+    linkOpt = lo;
+
+    otherOpt.clear();
+    for (int i(0); i < oo.count(); ++i) {
+        if ((!oo[i].isEmpty()) && (oo[i] != " "))
+            otherOpt << oo[i];
+    }
+
+    writeSettings();
 }

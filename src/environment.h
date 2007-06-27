@@ -77,11 +77,16 @@ signals:
     //! Emitted when the cpp path changes.
     void cppChanged(const QString &);
 
+    //! Emitted when the options change.
+    void optsChanged(const QString &, const QString &, const QStringList &);
+
 protected slots:
     void getCcPath();
     void getCppPath();
 
     void test();
+
+    void updateOpts();
 
 protected:
     Environment *env;
@@ -97,6 +102,10 @@ protected:
 
     QLineEdit *cppEdit;
     QLabel *cppStatusLabel;
+
+    QLineEdit *compileOptEdit;
+    QLineEdit *linkOptEdit;
+    QLineEdit *otherOptEdit;
 
     //! @internal Hold the C compiler and the C++ compiler's paths.
     QString cc, cpp;
@@ -178,7 +187,16 @@ public:
     //! @return True, if the environment can compile and link. False, otherwise.
     bool getCanCompile() const;
 
+    QString getCompileOpt() const;
+
+    QString getLinkOpt() const;
+
+    QStringList getOtherOpt() const;
+
 public slots:
+    //! Sets the compile/link/other options.
+    void setOpts(const QString &, const QString &, const QStringList &);
+
     //! Sets the path to the C compiler.
     void setCc(const QString &path);
 
@@ -251,7 +269,8 @@ protected:
     QProcess *bProc;
 
     //! Options used for the compiler.
-    QString compileOpt, outputOpt, linkOpt, otherOpt;
+    QString compileOpt, outputOpt, linkOpt;
+    QStringList otherOpt;
 
     //! True, if the environment is capable of compiling/linking files. False, otherwise.
     bool canCompile;
