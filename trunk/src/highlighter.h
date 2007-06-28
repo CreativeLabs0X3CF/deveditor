@@ -50,7 +50,7 @@ protected:
 
     QTextCharFormat dataTypeFormat;
     QTextCharFormat keywordFormat;
-    QTextCharFormat classFormat;
+    QTextCharFormat functionFormat;
     QTextCharFormat numberFormat;
     QTextCharFormat singleLineCommentFormat;
     QTextCharFormat multiLineCommentFormat;

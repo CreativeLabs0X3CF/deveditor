@@ -16,6 +16,9 @@
       <file>apply.xpm</file>
       <file>history_clear.xpm</file>
       <file>package_system.xpm</file>
+      <file>peditor.png</file>
+      <file>pi_icon.png</file>
+      <file>pi.png</file>
       <file>main.cpp.template</file>
 </qresource>
 </RCC>

@@ -79,12 +79,23 @@ bool NumberBar::event(QEvent *event) {
 }
 
 TextEditWidget::TextEditWidget(QWidget *parent) : QFrame(parent), curFile(""), shownName("") {
+    // Use Qt's Style Sheets to add a background-attachment:
+    // QTextEdit {
+    //         background-image: url("leaves.png");
+    //         background-attachment: fixed;
+    //     }
+
+//     setStyleSheet("QTextEdit{background-color: white;"
+//                             "background-image: url(\":/pi.png\");"
+//                             "background-attachment: scroll;}");
+
     setFrameStyle(QFrame::StyledPanel | QFrame::Sunken);
     setLineWidth(2);
 
     // Setup the main QTextEdit
     view = new QTextEdit(this);
-    view->setTabStopWidth(fontMetrics().width(QString("00")));
+
+    view->setTabStopWidth(fontMetrics().width(QString("W")) * 4);
 
     font.setFamily("Monospace");
     font.setFixedPitch(true);
@@ -181,11 +192,13 @@ QFont* TextEditWidget::getFont() {
 }
 
 void TextEditWidget::cursorChanged() {
+    //TODO Implement current line highlighting with extra selections.
+
     currentLine = view->textCursor().blockNumber() + 1;
 
     emit cursorPositionChanged(currentLine, view->textCursor().columnNumber() + 1);
 
-    return; //TODO Think about this.
+    return;
 
     static QTextBlock cblock;
     static int lineCount;
@@ -264,7 +277,7 @@ QTextDocument* TextEditWidget::getDocument() {
 bool TextEditWidget::save() {
     QFile file(curFile);
     if (!file.open(QFile::WriteOnly | QFile::Text)) {
-        QMessageBox::warning(this, tr("DevEditor"),
+        QMessageBox::warning(this, tr("PEditor"),
                              tr("Cannot write file %1:\n%2.")
                              .arg(curFile)
                              .arg(file.errorString()));
@@ -280,7 +293,7 @@ bool TextEditWidget::save() {
 void TextEditWidget::load() {
     QFile file(curFile);
     if (!file.open(QFile::ReadOnly | QFile::Text)) {
-        QMessageBox::warning(this, tr("DevEditor"),
+        QMessageBox::warning(this, tr("PEditor"),
                              tr("Cannot read file %1:\n%2.")
                              .arg(curFile)
                              .arg(file.errorString()));
