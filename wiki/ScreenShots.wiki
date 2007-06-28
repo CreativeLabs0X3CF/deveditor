@@ -3,6 +3,15 @@
 
 This page holds screen shots of the project at different moments in time.
 
+= 28 June 2007 (0.2) =
+[http://deveditor.googlecode.com/svn/trunk/shots/shot-28.06.2007.png]
+
+PEditor-0.2 viewing it's own code. Running under Linux.
+
+Linux binary: [http://deveditor.googlecode.com/files/peditor-0.2]
+
+Linux source: [http://deveditor.googlecode.com/files/PEditor - 0.2.tar.bz2]
+
 = 14 June 2007 =
 [http://deveditor.googlecode.com/svn/trunk/shots/shot-14.06.2007.png]
 
