@@ -1,0 +1,24 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+      <file>editcopy.xpm</file>
+      <file>editcut.xpm</file>
+      <file>filenew.xpm</file>
+      <file>fileopen.xpm</file>
+      <file>editpaste.xpm</file>
+      <file>filesave.xpm</file>
+      <file>tab_remove.xpm</file>
+      <file>viewmag-.xpm</file>
+      <file>viewmag+.xpm</file>
+      <file>next.xpm</file>
+      <file>window_new.xpm</file>
+      <file>run.xpm</file>
+      <file>configure.xpm</file>
+      <file>apply.xpm</file>
+      <file>history_clear.xpm</file>
+      <file>package_system.xpm</file>
+      <file>peditor.png</file>
+      <file>pi_icon.png</file>
+      <file>pi.png</file>
+      <file>main.cpp.template</file>
+</qresource>
+</RCC>
