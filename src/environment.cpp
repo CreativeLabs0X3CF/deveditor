@@ -187,7 +187,7 @@ void EnvironmentConfigurationWidget::setupUI() {
 }
 
 void EnvironmentConfigurationWidget::getCcPath() {
-    QString path = QFileDialog::getOpenFileName(this, "DevEditor", QFileInfo(env->getCc()).absolutePath());
+    QString path = QFileDialog::getOpenFileName(this, "PEditor", QFileInfo(env->getCc()).absolutePath());
 
     if (!path.isEmpty()) {
         cc = path;
@@ -203,7 +203,7 @@ void EnvironmentConfigurationWidget::getCcPath() {
 }
 
 void EnvironmentConfigurationWidget::getCppPath() {
-    QString path = QFileDialog::getOpenFileName(this, "DevEditor", QFileInfo(env->getCpp()).absolutePath());
+    QString path = QFileDialog::getOpenFileName(this, "PEditor", QFileInfo(env->getCpp()).absolutePath());
 
     if (!path.isEmpty()) {
         cpp = path;
@@ -583,24 +583,31 @@ void Environment::linkProcessExited(int exitCode, QProcess::ExitStatus exitStatu
 }
 
 void Environment::run(const QString &path) {
+    if (!exists(path))
+        if (mb) {
+            mb->error(tr("No such programme: %1").arg(path));
+            mb->error(tr("*** Failed ***")); //HACK This should be in peditor, reacting to a runFailed signal, or the like.
+
+            return;
+        }
+
     QString command;
     QStringList arguments;
     if (isUnix) {
-        command = "konsole";
-        arguments << "--noclose" << "-e";
+        command = "xterm";
+        arguments << "-e" << QString("%1 && echo Press return to continue... && read").arg(path);
     } else if (isWindows) {
+        command = "cmd.exe";
+        arguments << QString("%1 && pause").arg(path);
     }
 
-    arguments << path;
 
     static QProcess *proc = new QProcess(this);
-    disconnect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone()));
-    connect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone()));
+    disconnect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone(int, QProcess::ExitStatus)));
+    connect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone(int, QProcess::ExitStatus)));
     proc->start(command, arguments);
 
-//     if (isUnix) {
-//         return (system(QString("xterm -e \"%1 && echo \\\"Press return to continue\\\" && read\"").arg(path).toStdString().c_str()) == 0);
-//     } else if (isWindows) {
+//     if (isWindows) {
 //         return (system(QString("\"%1\" && pause").arg(path).toStdString().c_str()) == 0);
 //     }
 }
@@ -636,7 +643,7 @@ void Environment::setCpp(const QString &path) {
 }
 
 void Environment::writeSettings() {
-    QSettings settings("ScvTech", "DevEditor Environment");
+    QSettings settings("ScvTech", "PEditor Environment");
     settings.setValue("cc", cc);
     settings.setValue("cpp", cpp);
     settings.setValue("compileOpt", compileOpt);
@@ -646,7 +653,7 @@ void Environment::writeSettings() {
 }
 
 void Environment::readSettings() {
-    QSettings settings("ScvTech", "DevEditor Environment");
+    QSettings settings("ScvTech", "PEditor Environment");
     cc = settings.value("cc", "").toString();
     cpp = settings.value("cpp", "").toString();
 

@@ -20,7 +20,7 @@
 
 
 #include <QtGui>
-#include "deveditor.h"
+#include "peditor.h"
 #include "texteditwidget.h"
 #include "environment.h"
 #include "messagebox.h"
@@ -31,7 +31,9 @@
 
 #include <assert.h>
 
-void DevEditor::init() {
+void PEditor::init() {
+    setWindowIcon(QIcon(":/pi_icon.png"));
+
     env = new Environment(this);
     pi = new ProgInfo(".");
 
@@ -81,11 +83,11 @@ void DevEditor::init() {
     openProgFunc(progName);
 }
 
-DevEditor::DevEditor() {
+PEditor::PEditor() {
     init();
 }
 
-DevEditor::DevEditor(char *_filename) {
+PEditor::PEditor(char *_filename) {
     init();
 
     QFile file(_filename);
@@ -95,11 +97,11 @@ DevEditor::DevEditor(char *_filename) {
         qWarning("Unable to open %s", _filename);
 }
 
-DevEditor::~DevEditor() {
+PEditor::~PEditor() {
     delete pi;
 }
 
-bool DevEditor::switchToFile(const QString &fileName) {
+bool PEditor::switchToFile(const QString &fileName) {
 //   qWarning("Switching to %s", fileName.toStdString().c_str());
 
     int i(0);
@@ -114,7 +116,7 @@ bool DevEditor::switchToFile(const QString &fileName) {
     return true;
 }
 
-void DevEditor::closeTab(int index, bool force) {
+void PEditor::closeTab(int index, bool force) {
     if ((index < 0) || (index >= tabWidget->count())) {
         qWarning("Warning: Tried to close tab %d, but there are only %d tabs.\n", index, tabWidget->count());
         return;
@@ -124,8 +126,8 @@ void DevEditor::closeTab(int index, bool force) {
 
     QWidget *aux = tabWidget->widget(index);
 
-    if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
-        ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
+//     if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
+//         ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
 
     if (!force) {
         if (!ret)
@@ -143,26 +145,37 @@ void DevEditor::closeTab(int index, bool force) {
     delete aux;
 }
 
-void DevEditor::closeEvent(QCloseEvent *event) {
-    bool modified = false;
-    for (int i = 0; i < tabWidget->count(); ++i)
-        if (((TextEditWidget *)tabWidget->widget(i))->getDocument()->isModified()) {
-            modified = true;
-            break;
-        }
+void PEditor::closeEvent(QCloseEvent *event) {
+//     bool modified = false;
+//     for (int i = 0; i < tabWidget->count(); ++i)
+//         if (((TextEditWidget *)tabWidget->widget(i))->getDocument()->isModified()) {
+//             modified = true;
+//             break;
+//         }
+//
+//     if (modified) {
+//         int ret = QMessageBox::warning(this, tr("PEditor"),
+//                                        tr("Some documents have been modified.\n"
+//                                           "Are you sure you want to exit?"),
+//                                        QMessageBox::Yes | QMessageBox::Default,
+//                                        QMessageBox::Cancel | QMessageBox::Escape);
+//         if (ret == QMessageBox::Cancel) {
+//             event->ignore();
+//             return;
+//         }
+//     }
 
-    if (modified) {
-        int ret = QMessageBox::warning(this, tr("DevEditor"),
-                                       tr("There are multiple tabs open\n"
-                                          "and some documents have been modified since last save.\n"
-                                          "Are you sure you want to exit?"),
-                                       QMessageBox::Yes | QMessageBox::Default,
-                                       QMessageBox::Cancel | QMessageBox::Escape);
-        if (ret == QMessageBox::Cancel) {
-            event->ignore();
-            return;
-        }
+    int ret = QMessageBox::warning(this, tr("PEditor"),
+                                   tr("Are you sure you want to quit?"),
+                                   QMessageBox::Yes | QMessageBox::Default,
+                                   QMessageBox::No | QMessageBox::Escape);
+
+    if (ret == QMessageBox::No) {
+        event->ignore();
+        return;
     }
+
+    saveAll();
 
     while (tabWidget->count())
         closeTab(0, true);
@@ -171,7 +184,7 @@ void DevEditor::closeEvent(QCloseEvent *event) {
     event->accept();
 }
 
-void DevEditor::newFile() {
+void PEditor::newFile() {
     tabWidget->addTab(new TextEditWidget(tabWidget), "");
     switchToTab(tabWidget->count() - 1);
 
@@ -184,9 +197,9 @@ void DevEditor::newFile() {
     setCurrentFile("");
 }
 
-void DevEditor::open(QString fileName) {
+void PEditor::open(QString fileName) {
     if (fileName.isEmpty())
-        fileName = QFileDialog::getOpenFileName(this, "DevEditor", progName);
+        fileName = QFileDialog::getOpenFileName(this, "PEditor", progName);
     if (!fileName.isEmpty() && (env->isReadableFile(fileName))) {
         if (curFile != "") {
             tabWidget->addTab(new TextEditWidget(tabWidget), "");
@@ -203,35 +216,48 @@ void DevEditor::open(QString fileName) {
     }
 }
 
-void DevEditor::saveAll() {
-    for (int i(0); i < tabWidget->count(); ++i) {
-        ((TextEditWidget*)tabWidget->widget(i))->save();
-        tabWidget->setTabText(i, tr("%1").arg(((TextEditWidget*)tabWidget->widget(i))->getShownName()));
-    }
+void PEditor::saveAll() {
+    for (int i(0); i < tabWidget->count(); ++i)
+        if (((TextEditWidget*)tabWidget->widget(i))->getDocument()->isModified()) {
+            save(i);
+            tabWidget->setTabText(i, tr("%1").arg(((TextEditWidget*)tabWidget->widget(i))->getShownName()));
+        }
 }
 
-bool DevEditor::save() {
-    if (curFile.isEmpty())
-        return saveAs();
+bool PEditor::save(int tab) {
+    if (tab == -1)
+        tab = tabWidget->currentIndex();
+
+    if ((tab < 0) || (tab >= tabWidget->count()))
+        return false;
+
+    if (((TextEditWidget*)tabWidget->widget(tab))->getCurFile().isEmpty())
+        return saveAs(tab);
     else
-        return saveFile(curFile);
+        return saveFile(curFile, tab);
 }
 
-bool DevEditor::saveAs() {
-    QString fileName = QFileDialog::getSaveFileName(this, "DevEditor", progName);
+bool PEditor::saveAs(int tab) {
+    if (tab == -1)
+        tab = tabWidget->currentIndex();
+
+    if ((tab < 0) || (tab >= tabWidget->count()))
+        return false;
+
+    QString fileName = QFileDialog::getSaveFileName(this, "PEditor", progName);
     if (fileName.isEmpty())
         return false;
 
-    return saveFile(fileName);
+    return saveFile(fileName, tab);
 }
 
-void DevEditor::about() {
-    QMessageBox::about(this, tr("About DevEditor"),
-                       tr("<b>DevEditor</b> is an experimental programmer's editor.\n"
+void PEditor::about() {
+    QMessageBox::about(this, tr("About PEditor"),
+                       tr("<b>PEditor</b> is an experimental programmer's editor.<br />"
                           "Copyright 2007 Alexandru Scvortov <scvalex@gmail.com>"));
 }
 
-void DevEditor::documentWasModified(bool changed) {
+void PEditor::documentWasModified(bool changed) {
     setWindowModified(changed);
 
     textEdit->getDocument()->setModified(changed); //NOTE This shouldn't do anything, but it does.
@@ -242,15 +268,15 @@ void DevEditor::documentWasModified(bool changed) {
         tabWidget->setTabText(tabWidget->currentIndex(), tr("%1").arg(shownName));
 }
 
-void DevEditor::documentWasModified() {
+void PEditor::documentWasModified() {
     documentWasModified(true);
 }
 
-void DevEditor::toggleSyntaxHighlighting() {
+void PEditor::toggleSyntaxHighlighting() {
     textEdit->toggleHighlighting();
 }
 
-void DevEditor::toggleLineNumbering() {
+void PEditor::toggleLineNumbering() {
     lineNumbering = !lineNumbering;
 
     for (int i(0); i < tabWidget->count(); ++i)
@@ -259,7 +285,7 @@ void DevEditor::toggleLineNumbering() {
     lineNumbersAct->setChecked(lineNumbering);
 }
 
-void DevEditor::switchToTab(int _tab) {
+void PEditor::switchToTab(int _tab) {
     if (_tab >= tabWidget->count()) {
         qWarning("Warning: Tried to switch to tab %d, but there are only %d tabs.\n", _tab, tabWidget->count());
         return;
@@ -294,24 +320,24 @@ void DevEditor::switchToTab(int _tab) {
     shownName = textEdit->getShownName();
 
     setWindowModified(textEdit->getDocument()->isModified() || (curFile == ""));
-    setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+    setWindowTitle(tr("%1 - PEditor").arg(env->lastDir(progName)));
 }
 
-void DevEditor::removeTab() {
+void PEditor::removeTab() {
     closeTab(tabWidget->currentIndex());
 }
 
-void DevEditor::setSyntaxHighlightingMenuItem(bool state) {
+void PEditor::setSyntaxHighlightingMenuItem(bool state) {
     highlightAct->setChecked(state);
 }
 
-void DevEditor::textBigger() {
+void PEditor::textBigger() {
     ++textSize;
     textEdit->getFont()->setPointSize(textSize);
     textEdit->updateFont();
 }
 
-void DevEditor::textSmaller() {
+void PEditor::textSmaller() {
     if (textSize == 1)
         return;
 
@@ -320,7 +346,7 @@ void DevEditor::textSmaller() {
     textEdit->updateFont();
 }
 
-void DevEditor::setFontFamily() {
+void PEditor::setFontFamily() {
     QAction *action = qobject_cast<QAction *>(sender());
     if (!action)
         return;
@@ -335,12 +361,12 @@ void DevEditor::setFontFamily() {
     action->setChecked(true);
 }
 
-void DevEditor::updatePos(int line, int col) {
+void PEditor::updatePos(int line, int col) {
     lineLabel->setText(tr("Line: %1").arg(line));
     columnLabel->setText(tr("Col: %1").arg(col));
 }
 
-void DevEditor::createDockWindows() {
+void PEditor::createDockWindows() {
     mb = new MessageBox(this);
     mb->setFocusProxy(tabWidget);
 
@@ -365,13 +391,13 @@ void DevEditor::createDockWindows() {
     connect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
 }
 
-void DevEditor::newProg() {
+void PEditor::newProg() {
     QString fileName = QFileDialog::getSaveFileName(this, tr("New programme"), progPath, "");
     if (fileName.isEmpty())
         return;
 
     if (env->exists(fileName)) {
-        QMessageBox::warning(this, tr("DevEditor"),
+        QMessageBox::warning(this, tr("PEditor"),
                              tr("The programme %1 already exists.\n"
                                 "This is a problem. Solve it.").arg(fileName),
                              QMessageBox::Ok | QMessageBox::Default);
@@ -385,7 +411,7 @@ void DevEditor::newProg() {
     openProgFunc(fileName);
 }
 
-void DevEditor::openProg() {
+void PEditor::openProg() {
     QString fileName = QFileDialog::getExistingDirectory(this, tr("Open programme"), progPath, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (fileName.isEmpty())
         return;
@@ -393,7 +419,7 @@ void DevEditor::openProg() {
     openProgFunc(fileName);
 }
 
-void DevEditor::openProgFunc(QString fileName) {
+void PEditor::openProgFunc(QString fileName) {
     static bool firstGo = true;
 
     if (!firstGo && (fileName == progName))
@@ -405,7 +431,9 @@ void DevEditor::openProgFunc(QString fileName) {
         fileName += '/';
 
     progName = fileName;
-    setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+    setWindowTitle(tr("%1 - PEditor").arg(env->lastDir(progName)));
+
+    enableCLActs();
 
     pi->setProg(progName);
 
@@ -430,13 +458,13 @@ void DevEditor::openProgFunc(QString fileName) {
     mb->message(QString("Total: %1 files loaded").arg(list.count()));
 }
 
-void DevEditor::openRecentProg() {
+void PEditor::openRecentProg() {
     QAction *action = qobject_cast<QAction *>(sender());
     if (action)
         openProgFunc(action->data().toString());
 }
 
-void DevEditor::compileCurrentFile() {
+void PEditor::compileCurrentFile() {
     save();
 
     disableCLActs();
@@ -447,7 +475,7 @@ void DevEditor::compileCurrentFile() {
     env->compileFile(curFile);
 }
 
-void DevEditor::compileNext() {
+void PEditor::compileNext() {
     if (compileQueue.isEmpty())
         return;
 
@@ -461,7 +489,7 @@ void DevEditor::compileNext() {
     env->compileFile(src, true);
 }
 
-void DevEditor::compileFailed() {
+void PEditor::compileFailed() {
     compileQueue.clear();
 
     mb->error(tr("*** Failed ***"));
@@ -472,7 +500,7 @@ void DevEditor::compileFailed() {
     enableCLActs();
 }
 
-void DevEditor::compileSuccesful() {
+void PEditor::compileSuccesful() {
     compileQueue.clear();
 
     mb->good(tr("*** Succes ***"));
@@ -484,7 +512,7 @@ void DevEditor::compileSuccesful() {
     enableCLActs();
 }
 
-void DevEditor::compileAll() {
+void PEditor::compileAll() {
     saveAll();
 
     disableCLActs();
@@ -504,7 +532,7 @@ void DevEditor::compileAll() {
     compileNext();
 }
 
-void DevEditor::linkSuccesful() {
+void PEditor::linkSuccesful() {
     disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
     disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
 
@@ -513,7 +541,7 @@ void DevEditor::linkSuccesful() {
     enableCLActs();
 }
 
-void DevEditor::linkFailed() {
+void PEditor::linkFailed() {
     disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
     disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
 
@@ -522,7 +550,7 @@ void DevEditor::linkFailed() {
     enableCLActs();
 }
 
-void DevEditor::linkObjects(bool dontClear) {
+void PEditor::linkObjects(bool dontClear) {
     disableCLActs();
 
     messageDock->show();
@@ -532,56 +560,64 @@ void DevEditor::linkObjects(bool dontClear) {
     env->linkObjects(progName, dontClear);
 }
 
-void DevEditor::runProg() {
+void PEditor::runProg() {
     messageDock->show();
     mb->reset();
 
     mb->message(tr("Attempting to run %1").arg(pi->exe()));
 
-    connect(env, SIGNAL(runDone()), this, SLOT(runDone()));
+    connect(env, SIGNAL(runDone(int, QProcess::ExitStatus)), this, SLOT(runDone(int, QProcess::ExitStatus)));
     env->run(pi->exe());
 }
 
-void DevEditor::runDone() {
-    disconnect(env, SIGNAL(runDone()), this, SLOT(runDone()));
+void PEditor::runDone(int exitCode, QProcess::ExitStatus exitStatus) {
+    Q_UNUSED(exitCode);
+
+    disconnect(env, SIGNAL(runDone(int, QProcess::ExitStatus)), this, SLOT(runDone(int, QProcess::ExitStatus)));
+
+    if (exitStatus != QProcess::NormalExit) {
+        mb->error(tr("*** Failed ***"));
+
+        return;
+    }
 
     mb->good(tr("*** Done ***"));
 }
 
-void DevEditor::buildProg() {
+void PEditor::buildProg() {
     compileAll();
 
     connect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueBuild()));
 }
 
-void DevEditor::continueBuild() {
+void PEditor::continueBuild() {
     disconnect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueBuild()));
 
     linkObjects(true);
 }
 
-void DevEditor::disableCLActs() {
+void PEditor::disableCLActs() {
     compileFileAct->setDisabled(true);
     buildAct->setDisabled(true);
     compileAct->setDisabled(true);
     linkAct->setDisabled(true);
 }
 
-void DevEditor::enableCLActs() {
+void PEditor::enableCLActs() {
     compileFileAct->setEnabled(true);
     buildAct->setEnabled(true);
     compileAct->setEnabled(true);
     linkAct->setEnabled(true);
 }
 
-void DevEditor::canCompileChanged(bool newState) {
+void PEditor::canCompileChanged(bool newState) {
     if (newState)
         enableCLActs();
     else
         disableCLActs();
 }
 
-void DevEditor::createActions() {
+void PEditor::createActions() {
     compileFileAct = new QAction(tr("Compile"), this);
     compileFileAct->setStatusTip(tr("Compiles the current file"));
     connect(compileFileAct, SIGNAL(triggered()), this, SLOT(compileCurrentFile()));
@@ -693,7 +729,7 @@ void DevEditor::createActions() {
     openProgAct->setStatusTip(tr("Opens an existing programme"));
     connect(openProgAct, SIGNAL(triggered()), this, SLOT(openProg()));
 
-    aboutAct = new QAction(tr("&About"), this);
+    aboutAct = new QAction(QIcon(":/pi_icon.png"), tr("&About"), this);
     aboutAct->setStatusTip(tr("Show the application's About box"));
     connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
 
@@ -711,8 +747,8 @@ void DevEditor::createActions() {
     connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
 }
 
-void DevEditor::createMenus() {
-    deMenu = menuBar()->addMenu(tr("&DevEditor"));
+void PEditor::createMenus() {
+    deMenu = menuBar()->addMenu(tr("&PEditor"));
     deMenu->addAction(env->getConfigureAct());
     deMenu->addSeparator();
     deMenu->addAction(aboutAct);
@@ -756,7 +792,7 @@ void DevEditor::createMenus() {
     fileMenu->addAction(compileFileAct);
 }
 
-void DevEditor::createToolBars() {
+void PEditor::createToolBars() {
     QToolBar *toolBar;
 
     toolBar = addToolBar(tr("File"));
@@ -780,7 +816,7 @@ void DevEditor::createToolBars() {
     otherToolBar = addToolBar(tr("Other"));
 }
 
-void DevEditor::createStatusBar() {
+void PEditor::createStatusBar() {
     QFrame *aux = new QFrame;
     aux->setFrameStyle(QFrame::StyledPanel);
     aux->setLineWidth(2);
@@ -816,8 +852,8 @@ void DevEditor::createStatusBar() {
     statusBar()->showMessage(tr("Ready"));
 }
 
-void DevEditor::readSettings() {
-    QSettings settings("ScvTech", "DevEditor");
+void PEditor::readSettings() {
+    QSettings settings("ScvTech", "PEditor");
     QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
     QSize size = settings.value("size", QSize(400, 400)).toSize();
     textSize = settings.value("pointSize", 12).toInt();
@@ -829,8 +865,10 @@ void DevEditor::readSettings() {
     if (!env->isDir(progPath))
         progPath = env->home();
 
-    if ((progName != "NoProject") && (!env->isDir(progName)))
+    if ((progName != "NoProject") && (!env->isDir(progName))) {
         progName = "NoProject";
+        disableCLActs();
+    }
 
     openRecentProgMenu->clear();
     for (int i(0); i < recentProgs.count(); ++i)
@@ -845,8 +883,8 @@ void DevEditor::readSettings() {
     move(pos);
 }
 
-void DevEditor::writeSettings() {
-    QSettings settings("ScvTech", "DevEditor");
+void PEditor::writeSettings() {
+    QSettings settings("ScvTech", "PEditor");
     settings.setValue("pos", pos());
     settings.setValue("size", size());
     settings.setValue("pointSize", textSize);
@@ -856,19 +894,18 @@ void DevEditor::writeSettings() {
     settings.setValue("recentProgs", recentProgs);
 }
 
-bool DevEditor::maybeSave(bool canCancel) {
-    return true; //This just save everything.
+bool PEditor::maybeSave(bool canCancel) {
     if (textEdit->getDocument()->isModified()) {
         int ret;
         if (canCancel)
-            ret = QMessageBox::warning(this, tr("DevEditor"),
+            ret = QMessageBox::warning(this, tr("PEditor"),
                                        tr("The document %1 has been modified.\n"
                                           "Do you want to save your changes?").arg(shownName),
                                        QMessageBox::Yes | QMessageBox::Default,
                                        QMessageBox::No,
                                        QMessageBox::Cancel | QMessageBox::Escape);
         else
-            ret = QMessageBox::warning(this, tr("DevEditor"),
+            ret = QMessageBox::warning(this, tr("PEditor"),
                                        tr("The document %1 has been modified.\n"
                                           "Do you want to save your changes?").arg(shownName),
                                        QMessageBox::Yes | QMessageBox::Default,
@@ -881,7 +918,7 @@ bool DevEditor::maybeSave(bool canCancel) {
     return true;
 }
 
-void DevEditor::loadFile(const QString &fileName) {
+void PEditor::loadFile(const QString &fileName) {
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
     ((TextEditWidget*)tabWidget->currentWidget())->setCurFile(fileName);
@@ -894,24 +931,32 @@ void DevEditor::loadFile(const QString &fileName) {
     statusBar()->showMessage(tr("File loaded"), 2000);
 }
 
-bool DevEditor::saveFile(const QString &fileName) {
+bool PEditor::saveFile(const QString &fileName, int tab) {
+    if (tab == -1)
+        tab = tabWidget->currentIndex();
+
+    if ((tab < 0) || (tab >= tabWidget->count()))
+        return false;
+
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
-    ((TextEditWidget*)tabWidget->currentWidget())->setCurFile(fileName);
-    bool ret = ((TextEditWidget*)tabWidget->currentWidget())->save();
+    ((TextEditWidget*)tabWidget->widget(tab))->setCurFile(fileName);
+    bool ret = ((TextEditWidget*)tabWidget->widget(tab))->save();
 
     QApplication::restoreOverrideCursor();
 
     if (!ret)
         return false;
 
-    setCurrentFile(fileName);
+    if (tab == tabWidget->currentIndex())
+        setCurrentFile(fileName);
+
     statusBar()->showMessage(tr("File saved"), 2000);
 
     return true;
 }
 
-void DevEditor::setCurrentFile(const QString &fileName) {
+void PEditor::setCurrentFile(const QString &fileName) {
     curFile = fileName;
     textEdit->getDocument()->setModified(false);
     setWindowModified(false);
@@ -921,7 +966,7 @@ void DevEditor::setCurrentFile(const QString &fileName) {
     else
         shownName = env->strippedName(curFile);
 
-    setWindowTitle(tr("%1 - DevEditor").arg(env->lastDir(progName)));
+    setWindowTitle(tr("%1 - PEditor").arg(env->lastDir(progName)));
     if (isWindowModified())
         tabWidget->setTabText(tabWidget->currentIndex(), tr("%1*").arg(shownName));
     else

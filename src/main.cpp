@@ -20,23 +20,28 @@
 
 
 #include <QApplication>
-#include "deveditor.h"
+#include <QSplashScreen>
+#include "peditor.h"
 
 int main(int argc, char *argv[]) {
     Q_INIT_RESOURCE(application);
     QApplication app(argc, argv);
-    DevEditor *mw;
 
-    if (argc == 1)
-        mw = new DevEditor();
-    else
-        mw = new DevEditor(argv[1]);
+    QPixmap pixmap(":/peditor.png");
+    QSplashScreen splash(pixmap);
+    splash.showMessage(QObject::tr("Loading..."), Qt::AlignLeft | Qt::AlignBottom);
+    splash.show();
+    app.processEvents();
 
-    mw->show();
+    PEditor mw;
+    splash.finish(&mw);
 
-    int retval = app.exec();
+//     if (argc == 1)
+//         mw = new PEditor();
+//     else
+//         mw = new PEditor(argv[1]);
 
-    delete mw;
+    mw.show();
 
-    return retval;
+    return app.exec();
 }

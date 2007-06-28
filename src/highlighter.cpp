@@ -21,7 +21,15 @@
 #include "highlighter.h"
 
 Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
-//   keywordFormat.setForeground(Qt::darkBlue);
+    HighlightingRule rule;
+
+    functionFormat.setFontWeight(QFont::Bold); //TODO Make this functional.
+    functionFormat.setForeground(Qt::darkRed);
+    rule.pattern = QRegExp("\\b([A-Za-z\\d_]*[:]{,2}[A-Za-z\\d_]+(?=[\\s\\S]*\\())"
+                           "((?=[\\s\\S]*\\)))"
+                           "((?![\\s\\S]*;))");
+    rule.format = functionFormat;
+//     highlightingRules.append(rule);
 
     QStringList patterns;
 
@@ -46,7 +54,6 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
     "\\bxor\\b" << "\\bxor_eq\\b" << "\\bexcept\\b" << "\\bfinally\\b" <<
     "\\bxalloc\\b" << "\\bconst\\b";
 
-    HighlightingRule rule;
     foreach(QString pattern, patterns) {
         rule.pattern = QRegExp(pattern);
         rule.format = keywordFormat;
@@ -55,7 +62,15 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
 
     patterns.clear();
 
-    dataTypeFormat.setForeground(Qt::darkRed);
+    preprocessorFormat.setFontWeight(QFont::Bold);
+    preprocessorFormat.setForeground(QColor(7 * 16, 8 * 16, 9 * 16));
+
+    rule.pattern = QRegExp("#[a-zA-Z]+\\b");
+    rule.format = preprocessorFormat;
+    highlightingRules.append(rule);
+
+    dataTypeFormat.setFontWeight(QFont::Bold);
+    dataTypeFormat.setForeground(QColor(5 * 16 + 9, 7 * 16 + 7, 9 * 16 + 5));
 
     patterns << "\\bauto\\b" << "\\bbool\\b" << "\\bchar\\b" << "\\bconst\\b"
     << "\\bdouble\\b" << "\\bfloat\\b" << "\\bint\\b" << "\\blong\\b"
@@ -71,26 +86,13 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
         highlightingRules.append(rule);
     }
 
-    preprocessorFormat.setForeground(Qt::darkGreen);
-
-    rule.pattern = QRegExp("#[a-zA-Z]+\\b");
-    rule.format = preprocessorFormat;
-    highlightingRules.append(rule);
-
-    // Classes use CamelCase.
-    classFormat.setFontWeight(QFont::Bold);
-    classFormat.setForeground(Qt::darkMagenta);
-    rule.pattern = QRegExp("\\b[A-Z]+[a-z]*[A-Z]+[a-zA-Z]*\\b");
-    rule.format = classFormat;
-    highlightingRules.append(rule);
-
     //To colour things like Q_INIT_RESOURCE(application)
     qMacroFormat.setForeground(Qt::blue);
     rule.pattern = QRegExp("\\bQ_[A-Za-z_]+");
     rule.format = qMacroFormat;
     highlightingRules.append(rule);
 
-    quotationFormat.setForeground(Qt::red);
+    quotationFormat.setForeground(QColor(11 * 16 + 11, 8 * 16 + 7, 4 * 16 + 5));
     rule.pattern = QRegExp("\".*\"");
     rule.format = quotationFormat;
     highlightingRules.append(rule);
@@ -105,7 +107,7 @@ Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
     rule.format = singleLineCommentFormat;
     highlightingRules.append(rule);
 
-    multiLineCommentFormat.setForeground(Qt::darkGray);
+    multiLineCommentFormat.setForeground(Qt::gray);
 
     commentStartExpression = QRegExp("/\\*");
     commentEndExpression = QRegExp("\\*/");

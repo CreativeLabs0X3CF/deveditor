@@ -19,12 +19,12 @@
  ***************************************************************************/
 
 
-#ifndef DEVEDITOR_H
-#define DEVEDITOR_H
+#ifndef PEDITOR_H
+#define PEDITOR_H
 
 #include <QMainWindow>
 #include <QCloseEvent>
-#include <QStatusBar>
+#include <QProcess>
 
 class QAction;
 class QFont;
@@ -43,14 +43,14 @@ class ProgInfo;
   Main window
   @author Alexandru Scvortov <scvalex@gmail.com>
 */
-class DevEditor : public QMainWindow {
+class PEditor : public QMainWindow {
     Q_OBJECT
 
 public:
-    DevEditor();
+    PEditor();
     //!@param _filename Path to the file to be open.
-    DevEditor(char *_filename);
-    ~DevEditor();
+    PEditor(char *_filename);
+    ~PEditor();
 
 public slots:
     /*!
@@ -78,8 +78,10 @@ private slots:
     void open(QString fileName = "");
 
     void saveAll();
-    bool save();
-    bool saveAs();
+    //! Saves the current file. If no name is specified, pops a save file dialog. If tab != -1, saves the file in tab tab.
+    bool save(int tab = -1);
+    //! @sa save()
+    bool saveAs(int tab = -1);
     void about();
     //!@param changed The new modification state.
     void documentWasModified(bool changed);
@@ -155,7 +157,7 @@ private slots:
     void runProg();
 
     //! Is called when the programme has finished running.
-    void runDone();
+    void runDone(int, QProcess::ExitStatus);
 
     //! Builds --- compiles and links --- the programme.
     void buildProg();
@@ -192,7 +194,9 @@ private:
 
     bool maybeSave(bool canCancel = true);
     void loadFile(const QString &fileName);
-    bool saveFile(const QString &fileName);
+
+    //! Saves the current file. If tab != -1, saves the file in tab tab.
+    bool saveFile(const QString &fileName, int tab = -1);
     void setCurrentFile(const QString &fileName);
 
     /*!

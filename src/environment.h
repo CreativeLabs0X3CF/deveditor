@@ -223,7 +223,7 @@ signals:
     void linkFailed();
 
     //! Emitted when program has finished running.
-    void runDone();
+    void runDone(int, QProcess::ExitStatus);
 
     //! Emitted when the status of the compiler has changed.
     void canCompileChanged(bool);
