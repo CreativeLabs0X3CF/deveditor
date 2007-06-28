@@ -1,0 +1,22 @@
+#summary Build guide
+#labels Phase-Deploy
+
+= Linux - How to build PEditor =
+These are the steps to take when building PEditor on Linux.
+
+== Dependencies ==
+First check that you have all of the following packages installed.
+
+Necessary packages:
+ * Qt-4.3 [http://www.trolltech.com]
+
+== Build ==
+These are generic build instructions. Execute them in the top-level source directory (i.e. peditor/):
+
+{{{
+$ qmake
+$ make
+# make install
+}}}
+
+Note that the last step should be executed as root.
