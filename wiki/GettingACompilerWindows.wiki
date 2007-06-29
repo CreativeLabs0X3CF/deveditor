@@ -15,6 +15,8 @@ The following steps describe the procedure for downloading and installing MinGW 
  1. Run it and follow the steps. When it asks you what components you wish to install, in the combobox, select custom install and make sure you have checked: MinGW Base Tools, g++ compiler and MinGW make.
  1. Complete the installation process, noting the installation path (i.e. C:\MinGW)
 
+Note: For obscure reasons, you may have to run the installer several times to finish the install. You'll no it's finished when it tells you it's finished. Otherwise it may have just crashed.
+
 Now you have a compiler, all that remains is to tell PEditor about it.
 
 = Configuring PEditor =
