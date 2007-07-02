@@ -198,55 +198,70 @@ void TextEditWidget::cursorChanged() {
 
     emit cursorPositionChanged(currentLine, view->textCursor().columnNumber() + 1);
 
-    return;
-
-    static QTextBlock cblock;
-    static int lineCount;
-
-    if ((currentLine == lineCount) && (currentLine != 1))
-        return;
-
-    //TODO Fix erronous delete row after bug.
-    //TODO Optimize.
-
-    bool mod = getDocument()->isModified();
-
-    QTextBlock block = highlight.block();
-    QTextBlockFormat fmt = block.blockFormat();
+    QTextBlock block = view->textCursor().block();
+    QTextCharFormat fmt = block.charFormat();
     QColor bg = view->palette().base().color();
     fmt.setBackground(bg);
-    highlight.setBlockFormat(fmt);
 
-//   if (cblock.isValid()) {
-//     qWarning("Previous block is valid. Attempting to remove highlight");
-//     highlight = QTextCursor(cblock);
+    static QList<QTextEdit::ExtraSelection> selections;
+
+    selections.clear();
+
+    QTextEdit::ExtraSelection sel;
+    sel.cursor = view->textCursor();
+    sel.format = fmt;
+
+    selections << sel;
+
+    view->setExtraSelections(selections);
+
+//     static QTextBlock cblock;
+//     static int lineCount;
+//
+//     if ((currentLine == lineCount) && (currentLine != 1))
+//         return;
+//
+//     //TODO Fix erronous delete row after bug.
+//     //TODO Optimize.
+//
+//     bool mod = getDocument()->isModified();
+//
+//     QTextBlock block = highlight.block();
+//     QTextBlockFormat fmt = block.blockFormat();
+//     QColor bg = view->palette().base().color();
+//     fmt.setBackground(bg);
 //     highlight.setBlockFormat(fmt);
-//     qWarning("Highlight removed");
-//   }
-
-    lineCount = 1;
-    for (cblock = view->document()->begin(); cblock.isValid(); cblock = cblock.next(), ++lineCount)
-        if (lineCount == currentLine) {
-            fmt = cblock.blockFormat();
-            QColor bg = QColor(192, 192, 192, 100);
-            fmt.setBackground(bg);
-
-            highlight = QTextCursor(cblock);
-            highlight.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-            highlight.setBlockFormat(fmt);
-
-            break;
-        } else {
-            fmt = cblock.blockFormat();
-            QColor bg = view->palette().base().color();
-            fmt.setBackground(bg);
-
-            highlight = QTextCursor(cblock); // I'll go to Hell for this.
-            highlight.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
-            highlight.setBlockFormat(fmt);
-        }
-
-    getDocument()->setModified(mod);
+//
+// //   if (cblock.isValid()) {
+// //     qWarning("Previous block is valid. Attempting to remove highlight");
+// //     highlight = QTextCursor(cblock);
+// //     highlight.setBlockFormat(fmt);
+// //     qWarning("Highlight removed");
+// //   }
+//
+//     lineCount = 1;
+//     for (cblock = view->document()->begin(); cblock.isValid(); cblock = cblock.next(), ++lineCount)
+//         if (lineCount == currentLine) {
+//             fmt = cblock.blockFormat();
+//             QColor bg = QColor(192, 192, 192, 100);
+//             fmt.setBackground(bg);
+//
+//             highlight = QTextCursor(cblock);
+//             highlight.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+//             highlight.setBlockFormat(fmt);
+//
+//             break;
+//         } else {
+//             fmt = cblock.blockFormat();
+//             QColor bg = view->palette().base().color();
+//             fmt.setBackground(bg);
+//
+//             highlight = QTextCursor(cblock); // I'll go to Hell for this.
+//             highlight.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+//             highlight.setBlockFormat(fmt);
+//         }
+//
+//     getDocument()->setModified(mod);
 }
 
 bool TextEditWidget::eventFilter(QObject *obj, QEvent *event) {

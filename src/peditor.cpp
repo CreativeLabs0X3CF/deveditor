@@ -24,6 +24,7 @@
 #include "texteditwidget.h"
 #include "environment.h"
 #include "messagebox.h"
+#include "newprojectwidget.h"
 
 #include <QTextStream>
 #include <QCloseEvent>
@@ -44,7 +45,8 @@ void PEditor::init() {
     setCentralWidget(tabWidget);
     setFocusProxy(tabWidget);
 
-    textEdit = new TextEditWidget(tabWidget);
+//     textEdit = new TextEditWidget(tabWidget);
+    textEdit = 0;
 
     createActions();
     createMenus();
@@ -66,35 +68,25 @@ void PEditor::init() {
 
     readSettings();
 
-    connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
-    connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
+//     connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+//     connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
 
-    setCurrentFile("");
-
-    tabWidget->addTab(textEdit, shownName);
-    textEdit->getFont()->setPointSize(textSize);
-    textEdit->getFont()->setFamily(textFont);
-    textEdit->updateFont();
-    textEdit->setLineNumbering(lineNumbering);
-    connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
-    connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
-    connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+//     setCurrentFile("");
+//
+//     tabWidget->addTab(textEdit, shownName);
+//     textEdit->getFont()->setPointSize(textSize);
+//     textEdit->getFont()->setFamily(textFont);
+//     textEdit->updateFont();
+//     textEdit->setLineNumbering(lineNumbering);
+//     connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
+//     connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
+//     connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
 
     openProgFunc(progName);
 }
 
 PEditor::PEditor() {
     init();
-}
-
-PEditor::PEditor(char *_filename) {
-    init();
-
-    QFile file(_filename);
-    if (file.exists())
-        loadFile(QString(_filename));
-    else
-        qWarning("Unable to open %s", _filename);
 }
 
 PEditor::~PEditor() {
@@ -124,7 +116,7 @@ void PEditor::closeTab(int index, bool force) {
 
     bool ret = true;
 
-    QWidget *aux = tabWidget->widget(index);
+//     QWidget *aux = tabWidget->widget(index);
 
 //     if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
 //         ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
@@ -138,33 +130,20 @@ void PEditor::closeTab(int index, bool force) {
 
     tabWidget->removeTab(index);
 
-    if (!force && (tabWidget->count() == 0)) {
-        newFile();
+    if (tabWidget->count() == 0) {
+        textEdit = 0;
+
+        disableFSOActs();
     }
 
-    delete aux;
+//     if (!force && (tabWidget->count() == 0)) {
+//         newFile();
+//     }
+
+//     delete aux;
 }
 
 void PEditor::closeEvent(QCloseEvent *event) {
-//     bool modified = false;
-//     for (int i = 0; i < tabWidget->count(); ++i)
-//         if (((TextEditWidget *)tabWidget->widget(i))->getDocument()->isModified()) {
-//             modified = true;
-//             break;
-//         }
-//
-//     if (modified) {
-//         int ret = QMessageBox::warning(this, tr("PEditor"),
-//                                        tr("Some documents have been modified.\n"
-//                                           "Are you sure you want to exit?"),
-//                                        QMessageBox::Yes | QMessageBox::Default,
-//                                        QMessageBox::Cancel | QMessageBox::Escape);
-//         if (ret == QMessageBox::Cancel) {
-//             event->ignore();
-//             return;
-//         }
-//     }
-
     int ret = QMessageBox::warning(this, tr("PEditor"),
                                    tr("Are you sure you want to quit?"),
                                    QMessageBox::Yes | QMessageBox::Default,
@@ -200,6 +179,7 @@ void PEditor::newFile() {
 void PEditor::open(QString fileName) {
     if (fileName.isEmpty())
         fileName = QFileDialog::getOpenFileName(this, "PEditor", progName);
+
     if (!fileName.isEmpty() && (env->isReadableFile(fileName))) {
         if (curFile != "") {
             tabWidget->addTab(new TextEditWidget(tabWidget), "");
@@ -273,7 +253,8 @@ void PEditor::documentWasModified() {
 }
 
 void PEditor::toggleSyntaxHighlighting() {
-    textEdit->toggleHighlighting();
+    if (textEdit)
+        textEdit->toggleHighlighting();
 }
 
 void PEditor::toggleLineNumbering() {
@@ -293,15 +274,18 @@ void PEditor::switchToTab(int _tab) {
 
     tabWidget->setCurrentIndex(_tab);
 
-    disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
-    disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
-    disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
-    disconnect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
-    disconnect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
-    disconnect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
+    if (textEdit) {
+        disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+        disconnect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+        disconnect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+        disconnect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
+        disconnect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
+        disconnect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
+    }
 
     textEdit = (TextEditWidget*)tabWidget->currentWidget();
     assert(textEdit != 0);
+    enableFSOActs();
 
     tabWidget->setFocusProxy(textEdit);
     textEdit->getFont()->setPointSize(textSize);
@@ -332,12 +316,19 @@ void PEditor::setSyntaxHighlightingMenuItem(bool state) {
 }
 
 void PEditor::textBigger() {
+    if (!textEdit)
+        return;
+
     ++textSize;
+
     textEdit->getFont()->setPointSize(textSize);
     textEdit->updateFont();
 }
 
 void PEditor::textSmaller() {
+    if (!textEdit)
+        return;
+
     if (textSize == 1)
         return;
 
@@ -349,6 +340,9 @@ void PEditor::textSmaller() {
 void PEditor::setFontFamily() {
     QAction *action = qobject_cast<QAction *>(sender());
     if (!action)
+        return;
+
+    if (!textEdit)
         return;
 
     textFont = action->data().toString();
@@ -388,31 +382,35 @@ void PEditor::createDockWindows() {
     otherToolBar->addAction(messageDock->toggleViewAction());
 
     connect(mb, SIGNAL(switchToFile(const QString&)), this, SLOT(switchToFile(const QString&)));
-    connect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
+    if (textEdit)
+        connect(mb, SIGNAL(moveToLine(int)), textEdit, SLOT(moveToLine(int)));
 }
 
 void PEditor::newProg() {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("New programme"), progPath, "");
-    if (fileName.isEmpty())
-        return;
+    static NewProjectWidget *npw = new NewProjectWidget(this);
+    static bool justCreated = true;
 
-    if (env->exists(fileName)) {
-        QMessageBox::warning(this, tr("PEditor"),
-                             tr("The programme %1 already exists.\n"
-                                "This is a problem. Solve it.").arg(fileName),
-                             QMessageBox::Ok | QMessageBox::Default);
-        return;
+    if (justCreated) {
+        connect(npw, SIGNAL(createProgramme(const QString &, const QString &)), this, SLOT(createProgramme(const QString &, const QString &)));
+        justCreated = false;
     }
+    npw->show();
+}
 
-    env->mkdir(fileName);
+void PEditor::createProgramme(const QString &dir, const QString &templ) {
+    env->mkdir(dir);
 
-    env->mkfile(fileName, "main.cpp", true);
+    env->dupDir(templ, dir);
 
-    openProgFunc(fileName);
+    openProgFunc(dir);
 }
 
 void PEditor::openProg() {
-    QString fileName = QFileDialog::getExistingDirectory(this, tr("Open programme"), progPath, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QSettings settings("ScvTech", "PEditor");
+    QString progDir = settings.value("progDir", ".").toString();
+    progDir = QDir(progDir).absolutePath() + "/";
+
+    QString fileName = QFileDialog::getExistingDirectory(this, tr("Open programme"), progDir, QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
     if (fileName.isEmpty())
         return;
 
@@ -617,6 +615,21 @@ void PEditor::canCompileChanged(bool newState) {
         disableCLActs();
 }
 
+void PEditor::closeProg() {
+    mb->message("Closing programme");
+
+    QStringList list = env->listViewableFiles(progName);
+    int i(0);
+    while (i < tabWidget->count()) {
+        if (list.contains(((TextEditWidget*)tabWidget->widget(i))->getCurFile()))
+            closeTab(i--);
+        ++i;
+    }
+
+    progName = "NoProject";
+    setWindowTitle(tr("%1 - PEditor").arg(env->lastDir(progName)));
+}
+
 void PEditor::createActions() {
     compileFileAct = new QAction(tr("Compile"), this);
     compileFileAct->setStatusTip(tr("Compiles the current file"));
@@ -641,6 +654,10 @@ void PEditor::createActions() {
     saveAsAct->setStatusTip(tr("Save the document under a new name"));
     connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAs()));
 
+    saveAllAct = new QAction(tr("Save Al&l"), this);
+    saveAllAct->setStatusTip(tr("Save all open documents"));
+    connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAll()));
+
     exitAct = new QAction(tr("E&xit"), this);
     exitAct->setShortcut(tr("Ctrl+Q"));
     exitAct->setStatusTip(tr("Exit the application"));
@@ -650,19 +667,22 @@ void PEditor::createActions() {
     cutAct->setShortcut(tr("Ctrl+X"));
     cutAct->setStatusTip(tr("Cut the current selection's contents to the "
                             "clipboard"));
-    connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
+    if (textEdit)
+        connect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
 
     copyAct = new QAction(QIcon(":/editcopy.xpm"), tr("&Copy"), this);
     copyAct->setShortcut(tr("Ctrl+C"));
     copyAct->setStatusTip(tr("Copy the current selection's contents to the "
                              "clipboard"));
-    connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
+    if (textEdit)
+        connect(copyAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(copy()));
 
     pasteAct = new QAction(QIcon(":/editpaste.xpm"), tr("&Paste"), this);
     pasteAct->setShortcut(tr("Ctrl+V"));
     pasteAct->setStatusTip(tr("Paste the clipboard's contents into the current "
                               "selection"));
-    connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
+    if (textEdit)
+        connect(pasteAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(paste()));
 
     highlightAct = new QAction(tr("Syntax &Highlighting"), this);
     highlightAct->setStatusTip(tr("Toggle syntax highlighting"));
@@ -703,31 +723,35 @@ void PEditor::createActions() {
     lineNumbersAct->setChecked(true);
     connect(lineNumbersAct, SIGNAL(triggered()), this, SLOT(toggleLineNumbering()));
 
-    runAct = new QAction(QIcon(":/run.xpm"), tr("Run"), this);
+    runAct = new QAction(QIcon(":/run.xpm"), tr("&Run"), this);
     runAct->setShortcut(tr("F9"));
     runAct->setStatusTip(tr("Runs the programme"));
     connect(runAct, SIGNAL(triggered()), this, SLOT(runProg()));
 
-    buildAct = new QAction(QIcon(":/configure.xpm"), tr("Build"), this);
+    buildAct = new QAction(QIcon(":/configure.xpm"), tr("&Build"), this);
     buildAct->setShortcut(tr("F8"));
     buildAct->setStatusTip(tr("Builds the programme"));
     connect(buildAct, SIGNAL(triggered()), this, SLOT(buildProg()));
 
-    compileAct = new QAction(tr("Compile"), this);
+    compileAct = new QAction(tr("&Compile"), this);
     compileAct->setStatusTip(tr("Compiles all source files"));
     connect(compileAct, SIGNAL(triggered()), this, SLOT(compileAll()));
 
-    linkAct = new QAction(tr("Link"), this);
+    linkAct = new QAction(tr("&Link"), this);
     linkAct->setStatusTip(tr("Links the objects into an executable"));
     connect(linkAct, SIGNAL(triggered()), this, SLOT(linkObjects()));
 
-    newProgAct = new QAction(QIcon(":window_new.xpm"), tr("New"), this);
+    newProgAct = new QAction(QIcon(":window_new.xpm"), tr("&New"), this);
     newProgAct->setStatusTip(tr("Creates a new programme"));
     connect(newProgAct, SIGNAL(triggered()), this, SLOT(newProg()));
 
-    openProgAct = new QAction(QIcon(":fileopen.xpm"), tr("Open"), this);
+    openProgAct = new QAction(QIcon(":fileopen.xpm"), tr("&Open"), this);
     openProgAct->setStatusTip(tr("Opens an existing programme"));
     connect(openProgAct, SIGNAL(triggered()), this, SLOT(openProg()));
+
+    closeProgAct = new QAction(tr("&Close"), this);
+    closeProgAct->setStatusTip(tr("Close the current programme"));
+    connect(closeProgAct, SIGNAL(triggered()), this, SLOT(closeProg()));
 
     aboutAct = new QAction(QIcon(":/pi_icon.png"), tr("&About"), this);
     aboutAct->setStatusTip(tr("Show the application's About box"));
@@ -743,8 +767,13 @@ void PEditor::createActions() {
 
     cutAct->setEnabled(false);
     copyAct->setEnabled(false);
-    connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), cutAct, SLOT(setEnabled(bool)));
-    connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
+    if (textEdit) {
+        connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), cutAct, SLOT(setEnabled(bool)));
+        connect(textEdit->getTextEdit(), SIGNAL(copyAvailable(bool)), copyAct, SLOT(setEnabled(bool)));
+    }
+
+    if (!textEdit)
+        disableFSOActs();
 }
 
 void PEditor::createMenus() {
@@ -782,12 +811,14 @@ void PEditor::createMenus() {
     progMenu->addAction(newProgAct);
     progMenu->addAction(openProgAct);
     openRecentProgMenu = progMenu->addMenu(tr("Open recent"));
+    progMenu->addAction(closeProgAct);
 
     fileMenu = menuBar()->addMenu(tr("&File"));
     fileMenu->addAction(newAct);
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
+    fileMenu->addAction(saveAllAct);
     fileMenu->addSeparator();
     fileMenu->addAction(compileFileAct);
 }
@@ -859,11 +890,7 @@ void PEditor::readSettings() {
     textSize = settings.value("pointSize", 12).toInt();
     textFont = settings.value("fontFamily", "Monospace").toString();
     progName = settings.value("progName", "NoProject").toString();
-    progPath = settings.value("progPath", ".").toString();
     recentProgs = settings.value("recentProgs").toStringList();
-
-    if (!env->isDir(progPath))
-        progPath = env->home();
 
     if ((progName != "NoProject") && (!env->isDir(progName))) {
         progName = "NoProject";
@@ -890,11 +917,13 @@ void PEditor::writeSettings() {
     settings.setValue("pointSize", textSize);
     settings.setValue("fontFamily", textFont);
     settings.setValue("progName", progName);
-    settings.setValue("progPath", progPath);
     settings.setValue("recentProgs", recentProgs);
 }
 
 bool PEditor::maybeSave(bool canCancel) {
+    if (!textEdit)
+        return false;
+
     if (textEdit->getDocument()->isModified()) {
         int ret;
         if (canCancel)
@@ -921,8 +950,13 @@ bool PEditor::maybeSave(bool canCancel) {
 void PEditor::loadFile(const QString &fileName) {
     QApplication::setOverrideCursor(Qt::WaitCursor);
 
-    ((TextEditWidget*)tabWidget->currentWidget())->setCurFile(fileName);
-    ((TextEditWidget*)tabWidget->currentWidget())->load();
+    if (!textEdit) {
+        tabWidget->addTab(new TextEditWidget(tabWidget), "");
+        switchToTab(tabWidget->count() - 1);
+    }
+
+    textEdit->setCurFile(fileName);
+    textEdit->load();
 
     QApplication::restoreOverrideCursor();
 
@@ -958,13 +992,21 @@ bool PEditor::saveFile(const QString &fileName, int tab) {
 
 void PEditor::setCurrentFile(const QString &fileName) {
     curFile = fileName;
-    textEdit->getDocument()->setModified(false);
+
+    if (textEdit)
+        textEdit->getDocument()->setModified(false);
     setWindowModified(false);
 
     if (curFile.isEmpty())
         shownName = "untitled.txt";
     else
         shownName = env->strippedName(curFile);
+
+    if (!textEdit) {
+        textEdit = new TextEditWidget(tabWidget);
+
+        tabWidget->addTab(textEdit, shownName);
+    }
 
     setWindowTitle(tr("%1 - PEditor").arg(env->lastDir(progName)));
     if (isWindowModified())
@@ -974,4 +1016,18 @@ void PEditor::setCurrentFile(const QString &fileName) {
 
     textEdit->setCurFile(curFile);
     textEdit->setShownName(shownName);
+}
+
+void PEditor::disableFSOActs() {
+    openAct->setDisabled(true);
+    saveAct->setDisabled(true);
+    saveAsAct->setDisabled(true);
+    saveAllAct->setDisabled(true);
+}
+
+void PEditor::enableFSOActs() {
+    openAct->setEnabled(true);
+    saveAct->setEnabled(true);
+    saveAsAct->setEnabled(true);
+    saveAllAct->setEnabled(true);
 }

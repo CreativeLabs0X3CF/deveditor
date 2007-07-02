@@ -251,7 +251,8 @@ QString ProgInfo::exe() {
 }
 
 Environment::Environment(QWidget *parent) : QObject(parent), mb(0) {
-    badExts << "o" << "exe" << "log" << "xpm"; //TODO Add all extensions of images, etc.
+    badExts << "o" << "exe" << "log" << "xpm" << "png"
+            << "bmp"; //TODO Add all extensions of images, etc.
 
     isWindows = false;
     isUnix = false;
@@ -332,43 +333,35 @@ bool Environment::isExe(const QString &path) {
     return false;
 }
 
-bool Environment::mkfile(const QString &dir, const QString &name, bool useTemplate) {
-    if (!isDir(dir))
+bool Environment::dupDir(const QString &src, const QString &dest) {
+    if (!isDir(src) || !isDir(dest))
         return false;
 
-    QString path = dir + '/' + name;
-    if (exists(path))
-        return false;
+    QStringList fileList = QDir(src).entryList();
 
-    if (useTemplate) {
-        QFileInfo info(name);
+    QStringList files;
+    for (int i(0); i < fileList.count(); ++i)
+        files << QString("%1/%2").arg(src).arg(fileList[i]);
 
-        QString templateName = ":/" + info.fileName() + ".template";
+    for (int i(0); i < files.count(); ++i) {
+        if (fileList[i].endsWith(".meta"))
+            continue;
 
-        if (!exists(templateName)) {
-            templateName = ":/" + info.completeSuffix() + ".template";
-            if (!exists(templateName))
-                goto create_empty_file;
-        }
+        QString destFileName = QString("%1/%2").arg(dest).arg(fileList[i]);
 
-        QFile ifile(templateName);
-        ifile.open(QFile::ReadOnly | QFile::Text);
+        QFile ifile(files[i]);
+        if (!ifile.open(QFile::ReadOnly | QFile::Text))
+            return false;
 
-        QFile ofile(path);
-        ofile.open(QFile::WriteOnly | QFile::Text);
+        QFile ofile(destFileName);
+        if (!ofile.open(QFile::WriteOnly | QFile::Text))
+            return false;
 
         QTextStream fi(&ifile);
         QTextStream fo(&ofile);
 
         fo << fi.readAll();
-
-        return true;
     }
-
-create_empty_file:
-    QFile file(path);
-    if (!file.open(QFile::WriteOnly | QFile::Text))
-        return false;
 
     return true;
 }
@@ -591,24 +584,34 @@ void Environment::run(const QString &path) {
             return;
         }
 
+    QFileInfo info(path);
+
     QString command;
     QStringList arguments;
     if (isUnix) {
         command = "xterm";
-        arguments << "-e" << QString("%1 && echo Press return to continue... && read").arg(path);
+//         arguments << "-e" << QString("%1 && echo Press return to continue... && read").arg(path);
+        arguments << "-e" << QString("%1").arg(path);
     } else if (isWindows) {
-        command = "cmd.exe";
-        arguments << QString("%1 && pause").arg(path);
+        command = path;
     }
 
-
     static QProcess *proc = new QProcess(this);
+    proc->setWorkingDirectory(info.absolutePath());
+
     disconnect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone(int, QProcess::ExitStatus)));
     connect(proc, SIGNAL(finished(int, QProcess::ExitStatus)), this, SIGNAL(runDone(int, QProcess::ExitStatus)));
-    proc->start(command, arguments);
 
-//     if (isWindows) {
-//         return (system(QString("\"%1\" && pause").arg(path).toStdString().c_str()) == 0);
+    if (isUnix)
+        proc->start(command, arguments);
+    else if (isWindows)
+        proc->startDetached(command, arguments); // The Unix version is better, but I can't figure out how to show a console project with QProcess::start().
+
+//     if (!proc->waitForStarted()) {
+//         mb->error(tr("*** Failed: %1 ***").arg(proc->error()));
+//         return;
+//     } else {
+//         mb->good("Started without problems...");
 //     }
 }
 
