@@ -16,9 +16,17 @@
       <file>apply.xpm</file>
       <file>history_clear.xpm</file>
       <file>package_system.xpm</file>
+      <file>fileclose.xpm</file>
       <file>peditor.png</file>
       <file>pi_icon.png</file>
       <file>pi.png</file>
-      <file>main.cpp.template</file>
+      <file>Standard C.template</file>
+      <file>Standard C.template/main.c</file>
+      <file>Standard C.template/desc.meta</file>
+      <file>Standard C++.template</file>
+      <file>Standard C++.template/main.cpp</file>
+      <file>Standard C++.template/desc.meta</file>
+      <file>Blank.template</file>
+      <file>Blank.template/desc.meta</file>
 </qresource>
 </RCC>

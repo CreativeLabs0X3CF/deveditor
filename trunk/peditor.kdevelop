@@ -20,7 +20,6 @@
       <part>kdevfilegroups</part>
       <part>kdevfilelist</part>
       <part>kdevfileselector</part>
-      <part>kdevdistpart</part>
       <part>kdevgrepview</part>
       <part>kdevtools</part>
       <part>kdevvalgrind</part>

@@ -23,12 +23,12 @@
 Highlighter::Highlighter(QTextDocument *parent) : QSyntaxHighlighter(parent) {
     HighlightingRule rule;
 
-    functionFormat.setFontWeight(QFont::Bold); //TODO Make this functional.
-    functionFormat.setForeground(Qt::darkRed);
-    rule.pattern = QRegExp("\\b([A-Za-z\\d_]*[:]{,2}[A-Za-z\\d_]+(?=[\\s\\S]*\\())"
-                           "((?=[\\s\\S]*\\)))"
-                           "((?![\\s\\S]*;))");
-    rule.format = functionFormat;
+//     functionFormat.setFontWeight(QFont::Bold); //TODO Make this functional.
+//     functionFormat.setForeground(Qt::darkRed);
+//     rule.pattern = QRegExp("\\b([A-Za-z\\d_]*[:]{,2}[A-Za-z\\d_]+(?=[\\s\\S]*\\())"
+//                            "((?=[\\s\\S]*\\)))"
+//                            "((?![\\s\\S]*;))");
+//     rule.format = functionFormat;
 //     highlightingRules.append(rule);
 
     QStringList patterns;

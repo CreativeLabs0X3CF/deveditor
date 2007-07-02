@@ -48,8 +48,6 @@ class PEditor : public QMainWindow {
 
 public:
     PEditor();
-    //!@param _filename Path to the file to be open.
-    PEditor(char *_filename);
     ~PEditor();
 
 public slots:
@@ -117,14 +115,20 @@ private slots:
     //! Updates the line and column labels in th status bar.
     void updatePos(int line, int col);
 
-    //! Creates a new programme.
+    //! Called when Programme|New is pressed.
     void newProg();
+
+    //! Creates a new programme.
+    void createProgramme(const QString &dir, const QString &templ);
 
     //! Opens a programme.
     void openProg();
 
     //! Opens a recent programme.
     void openRecentProg();
+
+    //! Closes the current programme's tabs and changes the title bar to NoProject.
+    void closeProg();
 
     //! Compiles the current file.
     void compileCurrentFile();
@@ -232,9 +236,6 @@ private:
     //! True if the line numbers column is visible.
     bool lineNumbering;
 
-    //! The path of the programmes directories.
-    QString progPath;
-
     //! The path of the current programme.
     QString progName;
 
@@ -261,6 +262,7 @@ private:
     QAction *newProgAct;
     QAction *openProgAct;
     QMenu *openRecentProgMenu;
+    QAction *closeProgAct;
     QAction *tabCloseAction;
     QAction *runAct;
     QAction *buildAct;
@@ -271,6 +273,7 @@ private:
     QAction *openAct;
     QAction *saveAct;
     QAction *saveAsAct;
+    QAction *saveAllAct;
 
     QToolButton *tabCloseButton;
 
@@ -294,6 +297,12 @@ private:
 
     //! @internal The files that will be compiled.
     QStringList compileQueue;
+
+    //! @internal Disables the File|{Open, Save, Save As, Save All} actions.
+    void disableFSOActs();
+
+    //! @internal Enables the File|{Open, Save, Save As, Save All} actions.
+    void enableFSOActs();
 };
 
 #endif

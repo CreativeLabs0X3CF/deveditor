@@ -141,12 +141,6 @@ public:
     //! @return True if file is executable, false otherwise.
     bool isExe(const QString &path);
 
-    /*!
-      Creates the specified file in the specified directory. If the directory does not exist, aborts and returs false. On succesful exit, returns true.
-      @param useTemplate If set to true, mkfile will search for a template and attempt to use it.
-    */
-    bool mkfile(const QString &dir, const QString &name, bool useTemplate = false);
-
     //! @return The path to the home directory.
     QString home() const;
 
@@ -192,6 +186,8 @@ public:
     QString getLinkOpt() const;
 
     QStringList getOtherOpt() const;
+
+    bool dupDir(const QString &src, const QString &dest);
 
 public slots:
     //! Sets the compile/link/other options.
