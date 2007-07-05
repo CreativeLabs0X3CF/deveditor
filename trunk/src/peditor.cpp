@@ -560,7 +560,7 @@ void PEditor::linkSuccesful() {
 void PEditor::linkFailed() {
     disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
     disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
-    disconnect(this, SIGNAL(linkSuccesful()), this, SLOT(continueRun2()));
+    disconnect(this, SIGNAL(linkingSuccesful()), this, SLOT(continueRun2()));
 
     mb->error(tr("*** Problems ***"));
 
@@ -661,6 +661,8 @@ void PEditor::canCompileChanged(bool newState) {
 void PEditor::closeProg() {
     if (progName == "NoProject")
         return;
+
+    disableCLActs();
 
     mb->message(tr("Closing programme %1").arg(progName));
 
@@ -1065,10 +1067,8 @@ void PEditor::setCurrentFile(const QString &fileName) {
 }
 
 void PEditor::disableFSOActs() {
-    openAct->setDisabled(true);
     saveAct->setDisabled(true);
     saveAsAct->setDisabled(true);
-    saveAllAct->setDisabled(true);
 }
 
 void PEditor::enableFSOActs() {
