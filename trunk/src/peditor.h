@@ -35,9 +35,12 @@ class QLabel;
 class TextEditWidget;
 class QTextBrowser;
 class QStringList;
+class QAssistantClient;
 class Environment;
 class MessageBox;
 class ProgInfo;
+class MainWindow;
+class DocViewer;
 
 /*!
   Main window
@@ -61,6 +64,9 @@ public slots:
 signals:
     //! Emitted when a bulk compile job has succeded.
     void compilationSuccesful();
+
+    //! Emitted when a link job was completed succesfuly.
+    void linkingSuccesful();
 
 protected:
     void closeEvent(QCloseEvent *event);
@@ -139,6 +145,9 @@ private slots:
     //! Compiles all source files.
     void compileAll();
 
+    //! Compiles only the changed files from the last compile.
+    void compileChanged();
+
     //! Is called when compile has failed.
     void compileFailed();
 
@@ -160,6 +169,12 @@ private slots:
     //! Attempts to run the current programme.
     void runProg();
 
+    //! Continues run if compilation is succesful.
+    void continueRun();
+
+    //! Continues run if link was succesful.
+    void continueRun2();
+
     //! Is called when the programme has finished running.
     void runDone(int, QProcess::ExitStatus);
 
@@ -174,6 +189,9 @@ private slots:
 
     //! Triggered when the status (functional/non-functional) of the compiler changes.
     void canCompileChanged(bool);
+
+    //! Shows QtAssistant.
+    void assistant();
 
 private:
     //! Code sequences common to all constructors.
@@ -262,6 +280,8 @@ private:
     QAction *newProgAct;
     QAction *openProgAct;
     QMenu *openRecentProgMenu;
+    QMenu *helpMenu;
+    QAction *referenceAct;
     QAction *closeProgAct;
     QAction *tabCloseAction;
     QAction *runAct;
@@ -276,6 +296,8 @@ private:
     QAction *saveAllAct;
 
     QToolButton *tabCloseButton;
+
+    DocViewer *doc;
 
     //! Placed in the status bar, show the number of the line and column.
     QLabel *lineLabel, *columnLabel;

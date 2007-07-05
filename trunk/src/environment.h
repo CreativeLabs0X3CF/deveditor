@@ -48,6 +48,9 @@ public:
     //! @return List all object files in the current programme.
     QStringList objectFiles();
 
+    //! @returns The files whose objects are either out of date or inexistant.
+    QStringList listOutdatedSources();
+
     //! Sets the progamme.
     void setProg(const QString &_progName);
 
@@ -80,7 +83,7 @@ signals:
     //! Emitted when the options change.
     void optsChanged(const QString &, const QString &, const QStringList &);
 
-protected slots:
+private slots:
     void getCcPath();
     void getCppPath();
 
@@ -88,7 +91,7 @@ protected slots:
 
     void updateOpts();
 
-protected:
+private:
     Environment *env;
 
     //! Sets up all visible widgets, and the connections to the underlaying functions.
@@ -189,6 +192,8 @@ public:
 
     bool dupDir(const QString &src, const QString &dest);
 
+    bool areSimilar(const QString &src, const QString &dest);
+
 public slots:
     //! Sets the compile/link/other options.
     void setOpts(const QString &, const QString &, const QStringList &);
@@ -224,11 +229,11 @@ signals:
     //! Emitted when the status of the compiler has changed.
     void canCompileChanged(bool);
 
-protected slots:
+private slots:
     //! Messages out "Compile failed" or something.
     void compilationFailed();
 
-protected:
+private:
     //! True if platform is Windows. False otherwise.
     bool isWindows;
 
