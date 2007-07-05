@@ -25,6 +25,8 @@
 #include "environment.h"
 #include "messagebox.h"
 #include "newprojectwidget.h"
+#include "aboutwidget.h"
+#include "docviewer.h"
 
 #include <QTextStream>
 #include <QCloseEvent>
@@ -37,6 +39,7 @@ void PEditor::init() {
 
     env = new Environment(this);
     pi = new ProgInfo(".");
+    doc = new DocViewer();
 
     lineNumbering = true;
 
@@ -68,20 +71,6 @@ void PEditor::init() {
 
     readSettings();
 
-//     connect(textEdit->getDocument(), SIGNAL(modificationChanged(bool)), this, SLOT(documentWasModified(bool)));
-//     connect(textEdit->getDocument(), SIGNAL(contentsChanged()), this, SLOT(documentWasModified()));
-
-//     setCurrentFile("");
-//
-//     tabWidget->addTab(textEdit, shownName);
-//     textEdit->getFont()->setPointSize(textSize);
-//     textEdit->getFont()->setFamily(textFont);
-//     textEdit->updateFont();
-//     textEdit->setLineNumbering(lineNumbering);
-//     connect(tabWidget->currentWidget(), SIGNAL(highlighting(bool)), this, SLOT(setSyntaxHighlightingMenuItem(bool)));
-//     connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
-//     connect(textEdit, SIGNAL(cursorPositionChanged(int, int)), this, SLOT(updatePos(int, int)));
-
     openProgFunc(progName);
 }
 
@@ -90,6 +79,7 @@ PEditor::PEditor() {
 }
 
 PEditor::~PEditor() {
+    delete doc;
     delete pi;
 }
 
@@ -232,9 +222,9 @@ bool PEditor::saveAs(int tab) {
 }
 
 void PEditor::about() {
-    QMessageBox::about(this, tr("About PEditor"),
-                       tr("<b>PEditor</b> is an experimental programmer's editor.<br />"
-                          "Copyright 2007 Alexandru Scvortov <scvalex@gmail.com>"));
+    static AboutWidget *aw = new AboutWidget(this);
+
+    aw->show();
 }
 
 void PEditor::documentWasModified(bool changed) {
@@ -418,6 +408,8 @@ void PEditor::openProg() {
 }
 
 void PEditor::openProgFunc(QString fileName) {
+    closeProg();
+
     static bool firstGo = true;
 
     if (!firstGo && (fileName == progName))
@@ -474,8 +466,14 @@ void PEditor::compileCurrentFile() {
 }
 
 void PEditor::compileNext() {
-    if (compileQueue.isEmpty())
+    qWarning("Compile next");
+    if (compileQueue.isEmpty()) {
+        disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
+
+        compileSuccesful();
+
         return;
+    }
 
     if (compileQueue.count() == 1) {
         disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
@@ -494,6 +492,7 @@ void PEditor::compileFailed() {
     disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileSuccesful()));
     disconnect(env, SIGNAL(compileFailed()), this, SLOT(compileFailed()));
     disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
+    disconnect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueBuild()));
 
     enableCLActs();
 }
@@ -530,6 +529,23 @@ void PEditor::compileAll() {
     compileNext();
 }
 
+void PEditor::compileChanged() {
+    saveAll();
+
+    disableCLActs();
+
+    QFileInfo info = QFileInfo(progName);
+    QDir::setCurrent(info.absolutePath());
+
+    mb->message("------ Compiling ------");
+
+    compileQueue = pi->listOutdatedSources();
+
+    connect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
+    connect(env, SIGNAL(compileFailed()), this, SLOT(compileFailed()));
+    compileNext();
+}
+
 void PEditor::linkSuccesful() {
     disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
     disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
@@ -537,11 +553,14 @@ void PEditor::linkSuccesful() {
     mb->good(tr("*** Success ***"));
 
     enableCLActs();
+
+    emit linkingSuccesful();
 }
 
 void PEditor::linkFailed() {
     disconnect(env, SIGNAL(linkSuccesful()), this, SLOT(linkSuccesful()));
     disconnect(env, SIGNAL(linkFailed()), this, SLOT(linkFailed()));
+    disconnect(this, SIGNAL(linkSuccesful()), this, SLOT(continueRun2()));
 
     mb->error(tr("*** Problems ***"));
 
@@ -562,6 +581,28 @@ void PEditor::runProg() {
     messageDock->show();
     mb->reset();
 
+    saveAll();
+
+    if (pi->listOutdatedSources().empty()) {
+        continueRun2();
+
+        return;
+    }
+
+    connect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueRun()));
+
+    compileChanged();
+}
+
+void PEditor::continueRun() {
+    disconnect(this, SIGNAL(compilationSuccesful()), this, SLOT(continueRun()));
+
+    connect(this, SIGNAL(linkingSuccesful()), this, SLOT(continueRun2()));
+    linkObjects(true);
+}
+
+void PEditor::continueRun2() {
+    disconnect(this, SIGNAL(linkingSuccesful()), this, SLOT(continueRun2()));
     mb->message(tr("Attempting to run %1").arg(pi->exe()));
 
     connect(env, SIGNAL(runDone(int, QProcess::ExitStatus)), this, SLOT(runDone(int, QProcess::ExitStatus)));
@@ -596,6 +637,7 @@ void PEditor::continueBuild() {
 
 void PEditor::disableCLActs() {
     compileFileAct->setDisabled(true);
+    runAct->setDisabled(true);
     buildAct->setDisabled(true);
     compileAct->setDisabled(true);
     linkAct->setDisabled(true);
@@ -603,6 +645,7 @@ void PEditor::disableCLActs() {
 
 void PEditor::enableCLActs() {
     compileFileAct->setEnabled(true);
+    runAct->setEnabled(true);
     buildAct->setEnabled(true);
     compileAct->setEnabled(true);
     linkAct->setEnabled(true);
@@ -616,18 +659,28 @@ void PEditor::canCompileChanged(bool newState) {
 }
 
 void PEditor::closeProg() {
-    mb->message("Closing programme");
+    if (progName == "NoProject")
+        return;
+
+    mb->message(tr("Closing programme %1").arg(progName));
 
     QStringList list = env->listViewableFiles(progName);
     int i(0);
     while (i < tabWidget->count()) {
-        if (list.contains(((TextEditWidget*)tabWidget->widget(i))->getCurFile()))
+        if (list.contains(((TextEditWidget*)tabWidget->widget(i))->getCurFile())) {
+            ((TextEditWidget*)tabWidget->widget(i))->save();
+
             closeTab(i--);
+        }
         ++i;
     }
 
     progName = "NoProject";
     setWindowTitle(tr("%1 - PEditor").arg(env->lastDir(progName)));
+}
+
+void PEditor::assistant() {
+    doc->show();
 }
 
 void PEditor::createActions() {
@@ -765,6 +818,10 @@ void PEditor::createActions() {
     tabCloseAction->setStatusTip(tr("Close the current tab"));
     // This is added to a toolbutton in init().
 
+    referenceAct = new QAction(tr("C/C++ Reference"), this);
+    referenceAct->setStatusTip(tr("Shows the language reference"));
+    connect(referenceAct, SIGNAL(triggered()), this, SLOT(assistant()));
+
     cutAct->setEnabled(false);
     copyAct->setEnabled(false);
     if (textEdit) {
@@ -821,6 +878,9 @@ void PEditor::createMenus() {
     fileMenu->addAction(saveAllAct);
     fileMenu->addSeparator();
     fileMenu->addAction(compileFileAct);
+
+    helpMenu = menuBar()->addMenu(tr("&Help"));
+    helpMenu->addAction(referenceAct);
 }
 
 void PEditor::createToolBars() {
@@ -863,20 +923,6 @@ void PEditor::createStatusBar() {
     clbox->addWidget(columnLabel);
 
     aux->setLayout(clbox);
-
-//   QHBoxLayout *box = new QHBoxLayout;
-//   box->setSpacing(3);
-//   box->setMargin(0);
-//   clbox->setContentsMargins(2, 0, 2, 0);
-//   box->addSpacing(2000);
-//   box->addWidget(aux);
-//
-//   aux = new QFrame;
-//   aux->setLayout(box);
-
-//   esb = new ExtendedStatusBar(this);
-//   setStatusBar(0);
-//   setStatusBar(esb);
 
     statusBar()->addPermanentWidget(aux);
 

@@ -25,6 +25,10 @@
 
 int main(int argc, char *argv[]) {
     Q_INIT_RESOURCE(application);
+#ifdef Q_OS_WIN32
+    Q_INIT_RESOURCE(assistant);
+#endif
+
     QApplication app(argc, argv);
 
     QPixmap pixmap(":/peditor.png");

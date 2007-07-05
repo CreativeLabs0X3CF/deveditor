@@ -53,6 +53,24 @@ QStringList ProgInfo::objectFiles() {
     return list;
 }
 
+QStringList ProgInfo::listOutdatedSources() {
+    QString dir = progName;
+
+    if (!QDir(dir).exists())
+        return QStringList();
+
+    QFileInfoList aux = QDir(dir).entryInfoList();
+
+    QStringList list;
+    for (int i(0); i < aux.count(); ++i)
+        if ((aux[i].suffix() == "cpp") || (aux[i].suffix() == "c")) {
+            if (aux[i].lastModified() > QFileInfo(aux[i].baseName() + ".o").lastModified())
+                list << dir + "/" + aux[i].fileName();
+        }
+
+    return list;
+}
+
 void ProgInfo::setProg(const QString &_progName) {
     progName = _progName;
 }
@@ -239,11 +257,11 @@ QString ProgInfo::exe() {
     QStringList dirs = QFileInfo(progName).absolutePath().split('/');
     QString binName = progName + dirs[dirs.count() - 1];
 
-#ifdef Q_WS_WIN
+#ifdef Q_OS_WIN
     return binName + ".exe";
 #endif
 
-#ifdef Q_WS_X11
+#ifdef Q_OS_UNIX
     return binName;
 #endif
 
@@ -334,6 +352,62 @@ bool Environment::isExe(const QString &path) {
 }
 
 bool Environment::dupDir(const QString &src, const QString &dest) {
+    if (!isDir(src)) {
+        qWarning(QString("%1 is not a directory").arg(src).toStdString().c_str());
+
+        return false;
+    }
+
+    if (!isDir(dest)) {
+        qWarning(QString("%1 is not a directory").arg(dest).toStdString().c_str());
+
+        return false;
+    }
+
+
+    QStringList fileList = QDir(src).entryList();
+
+    QStringList files;
+    for (int i(0); i < fileList.count(); ++i)
+        files << QString("%1/%2").arg(src).arg(fileList[i]);
+
+    for (int i(0); i < files.count(); ++i) {
+        if (fileList[i].endsWith(".meta"))
+            continue;
+
+        QString destFileName = QString("%1/%2").arg(dest).arg(fileList[i]);
+
+        QFileInfo info(files[i]);
+        if (!info.isDir()) {
+            QFile ifile(files[i]);
+            if (!ifile.open(QFile::ReadOnly | QFile::Text)) {
+                qWarning(QString("Can't open %1 for reading").arg(files[i]).toStdString().c_str());
+
+                return false;
+            }
+
+            QFile ofile(destFileName);
+            if (!ofile.open(QFile::WriteOnly | QFile::Text)) {
+                qWarning(QString("Can't open %1 for reading").arg(destFileName).toStdString().c_str());
+
+                return false;
+            }
+
+            QTextStream fi(&ifile);
+            QTextStream fo(&ofile);
+
+            fo << fi.readAll();
+        } else {
+            mkdir(destFileName);
+            if (!dupDir(files[i], destFileName))
+                return false;
+        }
+    }
+
+    return true;
+}
+
+bool Environment::areSimilar(const QString &src, const QString &dest) {
     if (!isDir(src) || !isDir(dest))
         return false;
 
@@ -349,18 +423,15 @@ bool Environment::dupDir(const QString &src, const QString &dest) {
 
         QString destFileName = QString("%1/%2").arg(dest).arg(fileList[i]);
 
-        QFile ifile(files[i]);
-        if (!ifile.open(QFile::ReadOnly | QFile::Text))
-            return false;
-
-        QFile ofile(destFileName);
-        if (!ofile.open(QFile::WriteOnly | QFile::Text))
-            return false;
-
-        QTextStream fi(&ifile);
-        QTextStream fo(&ofile);
-
-        fo << fi.readAll();
+        QFileInfo info(files[i]);
+        if (!info.isDir()) {
+            if (!QFile(destFileName).exists())
+                return false;
+        } else {
+            mkdir(destFileName);
+            if (!areSimilar(files[i], destFileName))
+                return false;
+        }
     }
 
     return true;

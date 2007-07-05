@@ -161,16 +161,19 @@
       <envvars/>
       <runarguments>
         <peditor/>
+        <assistant/>
       </runarguments>
       <cwd>
         <peditor>/home/alex/projects/trunk/Qt/DevEditor</peditor>
+        <assistant>/home/alex/projects/trunk/Qt/DevEditor</assistant>
       </cwd>
       <debugarguments>
         <peditor/>
+        <assistant/>
       </debugarguments>
     </run>
     <general>
-      <activedir>src</activedir>
+      <activedir></activedir>
     </general>
     <make>
       <abortonerror>true</abortonerror>

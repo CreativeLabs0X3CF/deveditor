@@ -4,29 +4,43 @@ SOURCES += main.cpp \
  environment.cpp \
  messagebox.cpp \
  peditor.cpp \
- newprojectwidget.cpp
+ newprojectwidget.cpp \
+ aboutwidget.cpp \
+ docviewer.cpp
+
 HEADERS += highlighter.h \
  texteditwidget.h \
  environment.h \
  messagebox.h \
  peditor.h \
- newprojectwidget.h
+ newprojectwidget.h \
+ aboutwidget.h \
+ docviewer.h
+
 TEMPLATE = app
+
 CONFIG += warn_on \
 	  qt \
- release
+ assistant \
+ x11
+
 TARGET = ../bin/peditor
+
 RESOURCES = application.qrc
-CONFIG -= debug \
-stl \
+
+CONFIG -= stl \
  thread
+
 DESTDIR = .
 
-INSTALLS += peditor
+QT += xml
 
+QMAKE_CXXFLAGS_DEBUG += -Wall
 
-peditor.files += ../bin/peditor
+win32 {
+    INCLUDEPATH += ../assistant
 
-peditor.path = /usr/local/bin
+    LIBS += ../bin/libassistant.a
 
-
+    TARGETDEPS += ../bin/libassistant.a
+}
