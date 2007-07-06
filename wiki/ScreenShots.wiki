@@ -11,7 +11,7 @@ Help is provided through QtAssistant.
 [http://deveditor.googlecode.com/svn/tags/peditor-0.3/shots/mainwindow.png]
 [http://deveditor.googlecode.com/svn/tags/peditor-0.3/shots/newprojectcreation.png]
 
-Linux binary: [http://deveditor.googlecode.com/files/peditor-0.3 peditor-0.3]
+Linux binary: [http://deveditor.googlecode.com/files/peditor peditor]
 
 Linux source: [http://deveditor.googlecode.com/files/peditor-0.3.tar.bz2 peditor-0.3.tar.bz2]
 
