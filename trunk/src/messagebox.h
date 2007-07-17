@@ -22,12 +22,17 @@
 #ifndef MESSAGEBOX_H
 #define MESSAGEBOX_H
 
-#include <QTextBrowser>
+#include <QWidget>
+
+class QStringListModel;
+class QListView;
+class QTextBrowser;
+class QUrl;
 
 /*!
   @author Alexandru Scvortov <scvalex@gmail.com>
 */
-class MessageBox : public QTextBrowser {
+class MessageBox : public QWidget {
     Q_OBJECT
 
 public:
@@ -54,12 +59,17 @@ signals:
     void switchToFile(const QString &fileName);
     void moveToLine(int);
 
-protected slots:
+private slots:
     //! Recives open link requests.
     void moveTo(const QUrl &url);
 
-protected:
-    QString msgs;
+private:
+    QStringList msgs;
+    QStringListModel *msgM;
+
+    QTextBrowser *browser;
+
+    void updateModel();
 };
 
 #endif

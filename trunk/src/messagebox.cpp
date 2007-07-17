@@ -24,10 +24,23 @@
 
 #include "messagebox.h"
 
-MessageBox::MessageBox(QWidget *parent) : QTextBrowser(parent), msgs("") {
-    setOpenLinks(false);
+//TODO Turn browser into a QListView (that's how they do it in KDevelop)
 
-    connect(this, SIGNAL(anchorClicked(const QUrl&)), this, SLOT(moveTo(const QUrl&)));
+MessageBox::MessageBox(QWidget *parent) : QWidget(parent) {
+    msgM = new QStringListModel(this);
+
+    QVBoxLayout *lay = new QVBoxLayout();
+    lay->setMargin(0);
+
+    browser = new QTextBrowser(this);
+//     browser->setModel(msgM);
+    lay->addWidget(browser);
+
+    setLayout(lay);
+
+    browser->setOpenLinks(false);
+
+    connect(browser, SIGNAL(anchorClicked(const QUrl&)), this, SLOT(moveTo(const QUrl&)));
 }
 
 MessageBox::~MessageBox() {}
@@ -48,13 +61,15 @@ void MessageBox::moveTo(const QUrl &url) {
 }
 
 void MessageBox::reset() {
-    msgs = "";
-    setHtml(msgs);
+    msgs.clear();
+
+    updateModel();
 }
 
 void MessageBox::message(const QString &text) {
-    msgs += "<div>" + text + "</div>";
-    setHtml(msgs);
+    msgs << QString("<div>%1</div>").arg(text);
+
+    updateModel();
 }
 
 void MessageBox::warn(const QString &text) {
@@ -70,11 +85,12 @@ void MessageBox::warn(const QString &text) {
         lineNoStr += text[c++];
 
     if (lineNoStr.toInt()) {
-        msgs += QString("<a href=\"%1#%2\"><div style=\"color: #F479F4; text-decoration: none;\">").arg(fileName).arg(lineNoStr) + text + "</div></a>";
+        msgs << QString("<div><a href=\"%1#%2\" style=\"color: #F479F4; text-decoration: none;\">%3</a></div>").arg(fileName).arg(lineNoStr).arg(text);
     } else {
-        msgs += QString("<a href=\"%1\"><div style=\"color: #F479F4; text-decoration: none;\">").arg(fileName) + text + "</div></a>";
+        msgs << QString("<div><a href=\"%1\" style=\"color: #F479F4; text-decoration: none;\">%2</a></div>").arg(fileName).arg(text);
     }
-    setHtml(msgs);
+
+    updateModel();
 }
 
 void MessageBox::error(const QString &text) {
@@ -90,14 +106,22 @@ void MessageBox::error(const QString &text) {
         lineNoStr += text[c++];
 
     if (lineNoStr.toInt()) {
-        msgs += QString("<a href=\"%1#%2\"><div style=\"color: #FF0000; text-decoration: none;\">").arg(fileName).arg(lineNoStr) + text + "</div></a>";
+        msgs << QString("<div><a href=\"%1#%2\" style=\"color: #FF0000; text-decoration: none;\">%3</a></div>").arg(fileName).arg(lineNoStr).arg(text);
     } else {
-        msgs += QString("<a href=\"%1\"><div style=\"color: #FF0000; text-decoration: none;\">").arg(fileName) + text + "</div></a>";
+        msgs << QString("<div><a href=\"%1\" style=\"color: #FF0000; text-decoration: none;\">%2</a></div>").arg(fileName).arg(text);
     }
-    setHtml(msgs);
+
+    updateModel();
 }
 
 void MessageBox::good(const QString &text) {
-    msgs += "<div style=\"color: #008000;\">" + text + "</div>";
-    setHtml(msgs);
+    msgs << QString("<div><span style=\"color: #008000;\">%1</span></div>").arg(text);
+
+    updateModel();
+}
+
+void MessageBox::updateModel() {
+    msgM->setStringList(msgs);
+
+    browser->setHtml(msgM->stringList().join(""));
 }

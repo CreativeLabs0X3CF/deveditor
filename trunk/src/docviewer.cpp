@@ -18,6 +18,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <QtCore>
+#include <QtGui>
 #include <QtAssistant>
 
 #include "docviewer.h"
@@ -29,14 +31,13 @@
 
 #include "environment.h"
 
-DocViewer::DocViewer(QWidget *_parent) : parent(_parent) {
-    env = new Environment();
+DocViewer::DocViewer(QWidget *_parent) : QWidget(_parent) {
+    env = new Environment(this);
 
     docDir = QString("%1/%2").arg(QDir::homePath()).arg(".cppreference");
 }
 
 DocViewer::~DocViewer() {
-    delete env;
 }
 
 void DocViewer::show() {
@@ -51,7 +52,8 @@ void DocViewer::show() {
     }
 
 #ifdef Q_OS_UNIX
-    static QAssistantClient *ass = new QAssistantClient("", parent);
+    ass = new QAssistantClient("", this);
+    connect(ass, SIGNAL(assistantClosed()), this, SLOT(close())); //TODO Figure out a better way to do this.
     static bool initRun = true;
 
     if (initRun) {
@@ -69,7 +71,8 @@ void DocViewer::show() {
     static bool initRun = true;
 
     static Config *conf = Config::loadConfig(QString("%1/creference.adp").arg(docDir));
-    static MainWindow *mw = new MainWindow();
+    static MainWindow *mw = new MainWindow(this);
+    //TODO Check if assistant really closes when application exists.
     static QStringList links;
 
     if (initRun) {

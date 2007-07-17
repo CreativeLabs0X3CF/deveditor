@@ -22,6 +22,7 @@
 #ifndef PEDITOR_H
 #define PEDITOR_H
 
+#include <QTabWidget>
 #include <QMainWindow>
 #include <QCloseEvent>
 #include <QProcess>
@@ -41,6 +42,21 @@ class MessageBox;
 class ProgInfo;
 class MainWindow;
 class DocViewer;
+
+//! Tab widget that supports context menus on tabs.
+class TabWidget : public QTabWidget {
+    Q_OBJECT
+
+public:
+    TabWidget(QWidget *parent = 0);
+    ~TabWidget();
+
+signals:
+    void contextMenuAt(const QPoint &, int _tab);
+
+protected:
+    void contextMenuEvent(QContextMenuEvent *);
+};
 
 /*!
   Main window
@@ -82,13 +98,21 @@ private slots:
     void open(QString fileName = "");
 
     void saveAll();
+
+    //! Reloads the current document.
+    void reload();
+
     //! Saves the current file. If no name is specified, pops a save file dialog. If tab != -1, saves the file in tab tab.
     bool save(int tab = -1);
+
     //! @sa save()
     bool saveAs(int tab = -1);
+
     void about();
+
     //!@param changed The new modification state.
     void documentWasModified(bool changed);
+
     void documentWasModified();
 
     //! Toggles syntax highlighting on/off for the current tab.
@@ -135,9 +159,6 @@ private slots:
 
     //! Closes the current programme's tabs and changes the title bar to NoProject.
     void closeProg();
-
-    //! Compiles the current file.
-    void compileCurrentFile();
 
     //! Compiles the next file in the compile queue.
     void compileNext();
@@ -193,6 +214,9 @@ private slots:
     //! Shows QtAssistant.
     void assistant();
 
+    //! Show context menu at specified position.
+    void showContextMenu(const QPoint &, int _tab);
+
 private:
     //! Code sequences common to all constructors.
     void init();
@@ -228,7 +252,7 @@ private:
     */
     void closeTab(int index, bool force = false);
 
-    QTabWidget *tabWidget;
+    TabWidget *tabWidget;
 
     //! The current TextEditWidget, i.e. the one in the current tab.
     TextEditWidget *textEdit;
@@ -286,14 +310,13 @@ private:
     QAction *tabCloseAction;
     QAction *runAct;
     QAction *buildAct;
-    QAction *compileFileAct;
     QAction *compileAct;
     QAction *linkAct;
     QAction *newAct;
     QAction *openAct;
     QAction *saveAct;
     QAction *saveAsAct;
-    QAction *saveAllAct;
+    QAction *reloadAct;
 
     QToolButton *tabCloseButton;
 
