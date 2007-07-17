@@ -20,8 +20,10 @@
 
 
 #include <QApplication>
+#include <QString>
 #include <QSplashScreen>
 #include "peditor.h"
+#include "docviewer.h"
 
 int main(int argc, char *argv[]) {
     Q_INIT_RESOURCE(application);
@@ -31,21 +33,23 @@ int main(int argc, char *argv[]) {
 
     QApplication app(argc, argv);
 
-    QPixmap pixmap(":/peditor.png");
-    QSplashScreen splash(pixmap);
-    splash.showMessage(QObject::tr("Loading..."), Qt::AlignLeft | Qt::AlignBottom);
-    splash.show();
-    app.processEvents();
+    if (QString(argv[0]).contains("reference", Qt::CaseInsensitive)) {
+        DocViewer dw;
+        dw.show();
 
-    PEditor mw;
-    splash.finish(&mw);
+        return app.exec();
+    } else {
+        QPixmap pixmap(":/peditor.png");
+        QSplashScreen splash(pixmap);
+        splash.showMessage(QObject::tr("Loading..."), Qt::AlignLeft | Qt::AlignBottom);
+        splash.show();
+        app.processEvents();
 
-//     if (argc == 1)
-//         mw = new PEditor();
-//     else
-//         mw = new PEditor(argv[1]);
+        PEditor mw;
+        splash.finish(&mw);
 
-    mw.show();
+        mw.show();
 
-    return app.exec();
+        return app.exec();
+    }
 }

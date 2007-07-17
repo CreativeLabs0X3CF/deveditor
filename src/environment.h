@@ -81,7 +81,7 @@ signals:
     void cppChanged(const QString &);
 
     //! Emitted when the options change.
-    void optsChanged(const QString &, const QString &, const QStringList &);
+    void optsChanged(const QString &, const QStringList &, const QStringList &);
 
 private slots:
     void getCcPath();
@@ -186,7 +186,7 @@ public:
 
     QString getCompileOpt() const;
 
-    QString getLinkOpt() const;
+    QStringList getLinkOpt() const;
 
     QStringList getOtherOpt() const;
 
@@ -196,7 +196,7 @@ public:
 
 public slots:
     //! Sets the compile/link/other options.
-    void setOpts(const QString &, const QString &, const QStringList &);
+    void setOpts(const QString &, const QStringList &, const QStringList &);
 
     //! Sets the path to the C compiler.
     void setCc(const QString &path);
@@ -270,8 +270,8 @@ private:
     QProcess *bProc;
 
     //! Options used for the compiler.
-    QString compileOpt, outputOpt, linkOpt;
-    QStringList otherOpt;
+    QString compileOpt, outputOpt;
+    QStringList linkOpt, otherOpt;
 
     //! True, if the environment is capable of compiling/linking files. False, otherwise.
     bool canCompile;

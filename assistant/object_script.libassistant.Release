@@ -1,0 +1,23 @@
+CREATE ..\bin\libassistant.a
+ADDMOD release\fontpanel.o
+ADDMOD release\main.o
+ADDMOD release\helpwindow.o
+ADDMOD release\topicchooser.o
+ADDMOD release\docuparser.o
+ADDMOD release\index.o
+ADDMOD release\profile.o
+ADDMOD release\config.o
+ADDMOD release\helpdialog.o
+ADDMOD release\mainwindow.o
+ADDMOD release\tabbedbrowser.o
+ADDMOD release\fontsettingsdialog.o
+ADDMOD release\moc_fontpanel.o
+ADDMOD release\moc_helpwindow.o
+ADDMOD release\moc_topicchooser.o
+ADDMOD release\moc_index.o
+ADDMOD release\moc_helpdialog.o
+ADDMOD release\moc_mainwindow.o
+ADDMOD release\moc_tabbedbrowser.o
+ADDMOD release\moc_fontsettingsdialog.o
+ADDMOD release\qrc_assistant.o
+SAVE

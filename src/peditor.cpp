@@ -19,6 +19,8 @@
  ***************************************************************************/
 
 
+//FIXME Losing connections between tabs and actions.
+
 #include <QtGui>
 #include "peditor.h"
 #include "texteditwidget.h"
@@ -34,6 +36,18 @@
 
 #include <assert.h>
 
+TabWidget::TabWidget(QWidget *parent) : QTabWidget(parent) {
+}
+
+TabWidget::~TabWidget() {
+}
+
+void TabWidget::contextMenuEvent(QContextMenuEvent* e) {
+    Q_UNUSED(e);
+
+    emit contextMenuAt(QCursor::pos(), tabBar()->tabAt(mapFromGlobal(QCursor::pos())));
+}
+
 void PEditor::init() {
     setWindowIcon(QIcon(":/pi_icon.png"));
 
@@ -43,7 +57,8 @@ void PEditor::init() {
 
     lineNumbering = true;
 
-    tabWidget = new QTabWidget(this);
+    tabWidget = new TabWidget(this);
+    connect(tabWidget, SIGNAL(currentChanged(int)), this, SLOT(switchToTab(int)));
 
     setCentralWidget(tabWidget);
     setFocusProxy(tabWidget);
@@ -52,6 +67,8 @@ void PEditor::init() {
     textEdit = 0;
 
     createActions();
+    connect(tabWidget, SIGNAL(contextMenuAt(const QPoint &, int)), this, SLOT(showContextMenu(const QPoint &, int))); // The file actions are needed for showContextMenu().
+
     createMenus();
     createToolBars();
     createStatusBar();
@@ -106,11 +123,6 @@ void PEditor::closeTab(int index, bool force) {
 
     bool ret = true;
 
-//     QWidget *aux = tabWidget->widget(index);
-
-//     if (((TextEditWidget *)tabWidget->widget(index))->getDocument()->isModified())
-//         ret = maybeSave(!force); // If force then can't cancel. If not force, then can cancel.
-
     if (!force) {
         if (!ret)
             return;
@@ -125,12 +137,6 @@ void PEditor::closeTab(int index, bool force) {
 
         disableFSOActs();
     }
-
-//     if (!force && (tabWidget->count() == 0)) {
-//         newFile();
-//     }
-
-//     delete aux;
 }
 
 void PEditor::closeEvent(QCloseEvent *event) {
@@ -192,6 +198,11 @@ void PEditor::saveAll() {
             save(i);
             tabWidget->setTabText(i, tr("%1").arg(((TextEditWidget*)tabWidget->widget(i))->getShownName()));
         }
+}
+
+void PEditor::reload() {
+    if (!((TextEditWidget*)tabWidget->currentWidget())->getCurFile().isEmpty())
+        ((TextEditWidget*)tabWidget->currentWidget())->load();
 }
 
 bool PEditor::save(int tab) {
@@ -262,7 +273,8 @@ void PEditor::switchToTab(int _tab) {
         return;
     }
 
-    tabWidget->setCurrentIndex(_tab);
+    if (tabWidget->currentIndex() != _tab)
+        tabWidget->setCurrentIndex(_tab);
 
     if (textEdit) {
         disconnect(cutAct, SIGNAL(triggered()), textEdit->getTextEdit(), SLOT(cut()));
@@ -454,19 +466,7 @@ void PEditor::openRecentProg() {
         openProgFunc(action->data().toString());
 }
 
-void PEditor::compileCurrentFile() {
-    save();
-
-    disableCLActs();
-
-    messageDock->show();
-
-    connect(env, SIGNAL(compileSuccesful()), this, SLOT(compileSuccesful()));
-    env->compileFile(curFile);
-}
-
 void PEditor::compileNext() {
-    qWarning("Compile next");
     if (compileQueue.isEmpty()) {
         disconnect(env, SIGNAL(compileSuccesful()), this, SLOT(compileNext()));
 
@@ -636,7 +636,6 @@ void PEditor::continueBuild() {
 }
 
 void PEditor::disableCLActs() {
-    compileFileAct->setDisabled(true);
     runAct->setDisabled(true);
     buildAct->setDisabled(true);
     compileAct->setDisabled(true);
@@ -644,7 +643,6 @@ void PEditor::disableCLActs() {
 }
 
 void PEditor::enableCLActs() {
-    compileFileAct->setEnabled(true);
     runAct->setEnabled(true);
     buildAct->setEnabled(true);
     compileAct->setEnabled(true);
@@ -685,11 +683,27 @@ void PEditor::assistant() {
     doc->show();
 }
 
-void PEditor::createActions() {
-    compileFileAct = new QAction(tr("Compile"), this);
-    compileFileAct->setStatusTip(tr("Compiles the current file"));
-    connect(compileFileAct, SIGNAL(triggered()), this, SLOT(compileCurrentFile()));
+void PEditor::showContextMenu(const QPoint &pos, int _tab) {
+    static bool initRun = true;
+    static QMenu *menu = new QMenu(this);
 
+    if (initRun) {
+        menu->addAction(reloadAct);
+        menu->addSeparator();
+        menu->addAction(openAct);
+        menu->addAction(saveAct);
+        menu->addAction(saveAsAct);
+
+        initRun = false;
+    }
+
+    if ((_tab != -1) && (_tab < tabWidget->count()))
+        switchToTab(_tab);
+
+    menu->exec(pos);
+}
+
+void PEditor::createActions() {
     newAct = new QAction(QIcon(":/filenew.xpm"), tr("&New"), this);
     newAct->setShortcut(tr("Ctrl+N"));
     newAct->setStatusTip(tr("Create a new file"));
@@ -709,9 +723,14 @@ void PEditor::createActions() {
     saveAsAct->setStatusTip(tr("Save the document under a new name"));
     connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAs()));
 
-    saveAllAct = new QAction(tr("Save Al&l"), this);
-    saveAllAct->setStatusTip(tr("Save all open documents"));
-    connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAll()));
+//     saveAllAct = new QAction(tr("Save Al&l"), this);
+//     saveAllAct->setStatusTip(tr("Save all open documents"));
+//     connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAll()));
+
+    reloadAct = new QAction(tr("&Reload"), this);
+    reloadAct->setShortcut(tr("Ctrl+R"));
+    reloadAct->setStatusTip(tr("Reloads the current document"));
+    connect(reloadAct, SIGNAL(triggered()), this, SLOT(reload()));
 
     exitAct = new QAction(tr("E&xit"), this);
     exitAct->setShortcut(tr("Ctrl+Q"));
@@ -877,9 +896,9 @@ void PEditor::createMenus() {
     fileMenu->addAction(openAct);
     fileMenu->addAction(saveAct);
     fileMenu->addAction(saveAsAct);
-    fileMenu->addAction(saveAllAct);
+//     fileMenu->addAction(saveAllAct);
     fileMenu->addSeparator();
-    fileMenu->addAction(compileFileAct);
+    fileMenu->addAction(reloadAct);
 
     helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->addAction(referenceAct);
@@ -1069,11 +1088,11 @@ void PEditor::setCurrentFile(const QString &fileName) {
 void PEditor::disableFSOActs() {
     saveAct->setDisabled(true);
     saveAsAct->setDisabled(true);
+//     saveAllAct->setDisabled(true);
 }
 
 void PEditor::enableFSOActs() {
-    openAct->setEnabled(true);
     saveAct->setEnabled(true);
     saveAsAct->setEnabled(true);
-    saveAllAct->setEnabled(true);
+//     saveAllAct->setEnabled(true);
 }

@@ -169,8 +169,8 @@ void EnvironmentConfigurationWidget::setupUI() {
     nameLabel = new QLabel(tr("Link"), this);
     curLayout->addWidget(nameLabel);
 
-    linkOptEdit = new QLineEdit(env->getLinkOpt(), this);
-    linkOptEdit->setFixedWidth(fontMetrics().width(QString("0")) * 4);
+    linkOptEdit = new QLineEdit(env->getLinkOpt().join(" "), this);
+    linkOptEdit->setFixedWidth(fontMetrics().width(QString("0")) * 23);
     connect(linkOptEdit, SIGNAL(textChanged(const QString &)), this, SLOT(updateOpts()));
     curLayout->addWidget(linkOptEdit);
 
@@ -250,7 +250,7 @@ void EnvironmentConfigurationWidget::test() {
 }
 
 void EnvironmentConfigurationWidget::updateOpts() {
-    emit optsChanged(compileOptEdit->text(), linkOptEdit->text(), otherOptEdit->text().split(" "));
+    emit optsChanged(compileOptEdit->text(), linkOptEdit->text().split(" "), otherOptEdit->text().split(" "));
 }
 
 QString ProgInfo::exe() {
@@ -300,7 +300,7 @@ Environment::Environment(QWidget *parent) : QObject(parent), mb(0) {
     ecw = new EnvironmentConfigurationWidget(this, parent);
     connect(ecw, SIGNAL(ccChanged(const QString &)), this, SLOT(setCc(const QString &)));
     connect(ecw, SIGNAL(cppChanged(const QString &)), this, SLOT(setCpp(const QString &)));
-    connect(ecw, SIGNAL(optsChanged(const QString &, const QString &, const QStringList &)), this, SLOT(setOpts(const QString&, const QString&, const QStringList&)));
+    connect(ecw, SIGNAL(optsChanged(const QString &, const QStringList &, const QStringList &)), this, SLOT(setOpts(const QString&, const QStringList&, const QStringList&)));
 
     configureAct = new QAction(QIcon(":/configure.xpm"), tr("Configure compiler"), 0);
     configureAct->setStatusTip(tr("Configure the environment"));
@@ -717,7 +717,7 @@ void Environment::setCpp(const QString &path) {
 }
 
 void Environment::writeSettings() {
-    QSettings settings("ScvTech", "PEditor Environment");
+    QSettings settings("ScvTech", "PEditor");
     settings.setValue("cc", cc);
     settings.setValue("cpp", cpp);
     settings.setValue("compileOpt", compileOpt);
@@ -727,7 +727,7 @@ void Environment::writeSettings() {
 }
 
 void Environment::readSettings() {
-    QSettings settings("ScvTech", "PEditor Environment");
+    QSettings settings("ScvTech", "PEditor");
     cc = settings.value("cc", "").toString();
     cpp = settings.value("cpp", "").toString();
 
@@ -739,8 +739,14 @@ void Environment::readSettings() {
 
     compileOpt = settings.value("compileOpt", "-c").toString();
     outputOpt = settings.value("outputOpt", "-o").toString();
-    linkOpt = settings.value("linkOpt", "").toString();
-    otherOpt = settings.value("otherOpt", "-Wall").toStringList();
+    linkOpt = settings.value("linkOpt", "").toStringList();
+    otherOpt = settings.value("otherOpt", "").toStringList();
+
+    if (otherOpt[0] == "")
+        otherOpt.clear();
+
+    if (otherOpt.empty())
+        otherOpt << "-Wall" << "-pedantic";
 }
 
 bool Environment::checkCompiler() {
@@ -765,7 +771,7 @@ QString Environment::getCompileOpt() const {
     return compileOpt;
 }
 
-QString Environment::getLinkOpt() const {
+QStringList Environment::getLinkOpt() const {
     return linkOpt;
 }
 
@@ -773,9 +779,14 @@ QStringList Environment::getOtherOpt() const {
     return otherOpt;
 }
 
-void Environment::setOpts(const QString &co, const QString &lo, const QStringList &oo) {
+void Environment::setOpts(const QString &co, const QStringList &lo, const QStringList &oo) {
     compileOpt = co;
-    linkOpt = lo;
+
+    linkOpt.clear();
+    for (int i(0); i < lo.count(); ++i) {
+        if ((!lo[i].isEmpty()) && (lo[i] != " "))
+            linkOpt << lo[i];
+    }
 
     otherOpt.clear();
     for (int i(0); i < oo.count(); ++i) {

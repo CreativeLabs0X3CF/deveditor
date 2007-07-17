@@ -22,13 +22,19 @@
 #ifndef DOCVIEWER_H
 #define DOCVIEWER_H
 
+#include <QWidget>
+
 class Environment;
 class QString;
+class QAssistantClient;
+class QShowEvent;
 
 /**
 	@author Alexandru Scvortov <scvalex@gmail.com>
 */
-class DocViewer {
+class DocViewer : public QWidget {
+    Q_OBJECT
+
 public:
     DocViewer(QWidget *_parent = 0);
 
@@ -41,7 +47,7 @@ private:
 
     QString docDir;
 
-    QWidget *parent;
+    QAssistantClient *ass;
 };
 
 #endif

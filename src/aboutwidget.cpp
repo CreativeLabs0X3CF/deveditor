@@ -40,7 +40,7 @@ void AboutWidget::setupUi() {
             label->setPixmap(QPixmap(":/pi_icon.png").scaledToHeight(16));
         cl->addWidget(label);
 
-            label = new QLabel(tr("PEditor 0.2"), this);
+            label = new QLabel(tr("PEditor 0.3"), this);
         cl->addWidget(label);
         cl->setAlignment(label, Qt::AlignLeft);
     ml->addLayout(cl);
