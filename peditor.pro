@@ -1,9 +1,9 @@
 win32 {
-    SUBDIRS += assistant src
+    SUBDIRS += assistant peditor
 }
 
 unix {
-    SUBDIRS += src
+    SUBDIRS += peditor
 
     INSTALLS += peditor
     INSTALLS += cppreference
