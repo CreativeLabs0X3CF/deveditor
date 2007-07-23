@@ -13,14 +13,15 @@
       <part>kdevabbrev</part>
       <part>kdevbookmarks</part>
       <part>kdevsnippet</part>
-      <part>kdevctags2</part>
       <part>kdevdebugger</part>
+      <part>kdevdocumentation</part>
       <part>kdevdoxygen</part>
       <part>kdevkonsoleview</part>
       <part>kdevfilegroups</part>
       <part>kdevfilelist</part>
       <part>kdevfileselector</part>
       <part>kdevgrepview</part>
+      <part>kdevscripting</part>
       <part>kdevtools</part>
       <part>kdevvalgrind</part>
     </ignoreparts>
